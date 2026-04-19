@@ -2,13 +2,13 @@
 echo Demarrage de SA Plateforme avec FastAPI + React...
 
 :: Démarrer le backend FastAPI
-start cmd /k "cd /d D:\SA_Plateforme\backend && call venv\Scripts\activate && python run.py"
+start cmd /k "call venv\Scripts\activate && python backend\run.py"
 
 :: Attendre 3 secondes
 timeout /t 3
 
 :: Démarrer le frontend React
-start cmd /k "cd /d D:\SA_Plateforme\frontend && npm start"
+start cmd /k "cd frontend && npm start"
 
 echo.
 echo Application demarree !
