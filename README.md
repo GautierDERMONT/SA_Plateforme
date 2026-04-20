@@ -1,9 +1,6 @@
 # 1e lancement:
-Nous utilisons un environnement venv, vous devrez donc en créer un nouveau avec :
-python -m venv venv
-
-L’activer avec :
-venv\Scripts\activate
+Nous utilisons un environnement venv, vous devrez donc en créer un nouveau et l'activer avec :
+python -m venv venv && venv\Scripts\activate
 
 Installer les dépendances grâce à :
 pip install -r requirements.txt
