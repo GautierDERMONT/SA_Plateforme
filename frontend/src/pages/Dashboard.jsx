@@ -14,7 +14,7 @@ function Dashboard({ onLogout }) {
   const [newItemName, setNewItemName] = useState('');
   const [selectedFormat, setSelectedFormat] = useState('Détection automatique');
   const [file, setFile] = useState(null);
-  const [fileName, setFileName] = useState("");
+  const [fileName, setFileName] = useState('');
   const [user, setUser] = useState(null);
   const [processing, setProcessing] = useState(false);
 
@@ -40,8 +40,8 @@ function Dashboard({ onLogout }) {
 
   const handleProcess = async (e) => {
     e.preventDefault();
-    if (!newItemName) return alert("Veuillez entrer un nom de salon.");
-    if (!file) return alert("Veuillez sélectionner un fichier.");
+    if (!newItemName) return alert('Veuillez entrer un nom de salon.');
+    if (!file) return alert('Veuillez sélectionner un fichier.');
   
     setProcessing(true);
 
@@ -49,15 +49,15 @@ function Dashboard({ onLogout }) {
       await createData({ name: newItemName, description: `Format: ${selectedFormat}` });
 
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append('file', file);
 
-      const response = await fetch("http://localhost:5000/process-and-preview", {
-        method: "POST",
+      const response = await fetch('http://localhost:5000/process-and-preview', {
+        method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error("Erreur API");
+        throw new Error('Erreur API');
       }
 
       const result = await response.json();
@@ -68,7 +68,7 @@ function Dashboard({ onLogout }) {
       navigate('/preview');
       
     } catch (err) {
-      alert("Erreur lors du traitement");
+      alert('Erreur lors du traitement');
     } finally {
       setProcessing(false);
     }
@@ -77,7 +77,7 @@ function Dashboard({ onLogout }) {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     setFile(selectedFile);
-    setFileName(selectedFile ? selectedFile.name : "");
+    setFileName(selectedFile ? selectedFile.name : '');
   };
 
   if (loading) return <div className="loading-screen">Chargement de la plateforme...</div>;
@@ -128,14 +128,14 @@ function Dashboard({ onLogout }) {
                 type="file"
                 id="fileInput"
                 accept=".xlsx,.xls"
-                style={{ display: "none" }}
+                style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
               <div className="file-input-custom">
                 <button type="button" className="browse-btn" onClick={() => document.getElementById('fileInput').click()}>
                   Parcourir...
                 </button>
-                <span className="file-name">{fileName || "Aucun fichier sélectionné."}</span>
+                <span className="file-name">{fileName || 'Aucun fichier sélectionné.'}</span>
               </div>
             </div>
 
@@ -151,7 +151,7 @@ function Dashboard({ onLogout }) {
             </div>
 
             <button type="submit" className="submit-btn" disabled={processing}>
-              {processing ? "Traitement en cours..." : "Traiter le fichier"}
+              {processing ? 'Traitement en cours...' : 'Traiter le fichier'}
             </button>
           </form>
         </div>

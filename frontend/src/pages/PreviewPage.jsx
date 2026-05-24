@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import Navbar from '../pages/Navbar';
+import Navbar from './Navbar';
 import './PreviewPage.css';
 
-
-export default function PreviewPage() {
+export default function PreviewPage({ onLogout }) {
   const navigate = useNavigate();
   const { processedData, setProcessedData, clearProcessedData, salonName, setSalonName } = useApp();
   const [editingData, setEditingData] = useState(processedData);
@@ -22,13 +21,6 @@ export default function PreviewPage() {
   useEffect(() => {
     setEditingData(processedData);
   }, [processedData]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    clearProcessedData();
-    navigate('/login');
-  };
 
   const handleNewFile = () => {
     clearProcessedData();
@@ -117,7 +109,7 @@ export default function PreviewPage() {
   if (processedData.length === 0) {
     return (
       <div className="preview-container">
-        <Navbar user={user} onLogout={handleLogout} />
+        <Navbar user={user} onLogout={onLogout} />
         <div className="preview-empty">
           <div className="empty-card">
             <h2>Aucune donnée</h2>
@@ -142,7 +134,7 @@ export default function PreviewPage() {
 
   return (
     <div className="preview-container">
-      <Navbar user={user} onLogout={handleLogout} />
+      <Navbar user={user} onLogout={onLogout} />
       
       <main className="preview-main">
         <div className="preview-header">
@@ -213,7 +205,7 @@ export default function PreviewPage() {
                   
                   return (
                     <tr key={index} className={hasErrors ? 'row-error' : ''}>
-                      <td>{index + 1}</td>
+                      <td className="font-medium">{index + 1}</td>
                       <td><input value={row.nom || ''} onChange={(e) => handleCellEdit(index, 'nom', e.target.value)} className="cell-input" /></td>
                       <td><input value={row.prenom || ''} onChange={(e) => handleCellEdit(index, 'prenom', e.target.value)} className="cell-input" /></td>
                       <td><input value={row.email || ''} onChange={(e) => handleCellEdit(index, 'email', e.target.value)} className={`cell-input ${row.errors?.some(e => e.field === 'email') ? 'input-warning' : ''}`} /></td>

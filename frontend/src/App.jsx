@@ -4,6 +4,7 @@ import { AppProvider } from './context/AppContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import PreviewPage from './pages/PreviewPage';
+import AdminPage from './pages/AdminPage';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -20,6 +21,8 @@ function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setIsAuthenticated(false);
   };
 
@@ -37,7 +40,11 @@ function App() {
           />
           <Route 
             path="/preview" 
-            element={isAuthenticated ? <PreviewPage /> : <Navigate to="/login" />} 
+            element={isAuthenticated ? <PreviewPage onLogout={handleLogout} /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/admin" 
+            element={isAuthenticated ? <AdminPage onLogout={handleLogout} /> : <Navigate to="/login" />} 
           />
         </Routes>
       </BrowserRouter>

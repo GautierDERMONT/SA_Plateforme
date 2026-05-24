@@ -1,28 +1,30 @@
 .universal-navbar {
   background: white;
-  padding: 12px 40px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   border-bottom: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
-.navbar-logo {
-  cursor: pointer;
+.navbar-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
 }
 
 .navbar-logo .logo-text {
   font-weight: 700;
-  font-size: 18px;
+  font-size: 20px;
   color: #0f172a;
-}
-
-.navbar-logo .logo-text:hover {
-  color: #3b82f6;
 }
 
 .navbar-actions {
@@ -32,15 +34,15 @@
 }
 
 .user-email {
-  font-size: 13px;
+  font-size: 14px;
   color: #64748b;
 }
 
 .navbar-btn {
   background: white;
   border: 1px solid #e2e8f0;
-  padding: 8px 18px;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -48,7 +50,27 @@
 }
 
 .navbar-btn:hover {
+  transform: translateY(-1px);
   background: #f8fafc;
+}
+
+.navbar-btn.home {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+.navbar-btn.home:hover {
+  background: #e2e8f0;
+}
+
+.navbar-btn.admin {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.navbar-btn.admin:hover {
+  background: #2563eb;
 }
 
 .navbar-btn.logout {
