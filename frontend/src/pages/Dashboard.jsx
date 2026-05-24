@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getData, createData } from '../services/api';
+import { useApp } from '../context/AppContext';
+import Navbar from './Navbar';
 import './Dashboard.css';
 
 function Dashboard({ onLogout }) {
+  const navigate = useNavigate();
+  const { setProcessedData, setSalonName } = useApp();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,6 +16,7 @@ function Dashboard({ onLogout }) {
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState("");
   const [user, setUser] = useState(null);
+  const [processing, setProcessing] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -37,14 +43,15 @@ function Dashboard({ onLogout }) {
     if (!newItemName) return alert("Veuillez entrer un nom de salon.");
     if (!file) return alert("Veuillez sélectionner un fichier.");
   
+    setProcessing(true);
+
     try {
       await createData({ name: newItemName, description: `Format: ${selectedFormat}` });
-      setNewItemName('');
 
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("http://localhost:5000/upload", {
+      const response = await fetch("http://localhost:5000/process-and-preview", {
         method: "POST",
         body: formData,
       });
@@ -53,20 +60,17 @@ function Dashboard({ onLogout }) {
         throw new Error("Erreur API");
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "crm_ready.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      const result = await response.json();
       
-      fetchData();
-      alert("Traitement terminé !");
+      setProcessedData(result.data);
+      setSalonName(newItemName);
+      
+      navigate('/preview');
+      
     } catch (err) {
       alert("Erreur lors du traitement");
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -79,18 +83,10 @@ function Dashboard({ onLogout }) {
   if (loading) return <div className="loading-screen">Chargement de la plateforme...</div>;
 
   return (
-    <div className="app-wrapper">
-      <nav className="navbar">
-        <div className="nav-logo">
-          <span className="logo-text">CSV CRM Transformer</span>
-        </div>
-        <div className="nav-actions">
-          <span className="user-email">{user?.email || 'Utilisateur'}</span>
-          <button className="nav-btn logout" onClick={onLogout}>Déconnexion</button>
-        </div>
-      </nav>
-
-      <main className="container">
+    <div className="dashboard-wrapper">
+      <Navbar user={user} onLogout={onLogout} />
+      
+      <main className="dashboard-container">
         <header className="hero-section">
           <h1>Transformateur CSV CRM</h1>
           <p>Importez et transformez vos fichiers CSV de salons pour le CRM</p>
@@ -136,7 +132,9 @@ function Dashboard({ onLogout }) {
                 onChange={handleFileChange}
               />
               <div className="file-input-custom">
-                <button type="button" className="browse-btn" onClick={() => document.getElementById('fileInput').click()}>Parcourir...</button>
+                <button type="button" className="browse-btn" onClick={() => document.getElementById('fileInput').click()}>
+                  Parcourir...
+                </button>
                 <span className="file-name">{fileName || "Aucun fichier sélectionné."}</span>
               </div>
             </div>
@@ -152,8 +150,8 @@ function Dashboard({ onLogout }) {
               </ul>
             </div>
 
-            <button type="submit" className="submit-btn">
-              Traiter le fichier
+            <button type="submit" className="submit-btn" disabled={processing}>
+              {processing ? "Traitement en cours..." : "Traiter le fichier"}
             </button>
           </form>
         </div>

@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AppProvider } from './context/AppContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import './App.css';
+import PreviewPage from './pages/PreviewPage';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       setIsAuthenticated(true);
     }
-    setLoading(false);
   }, []);
 
   const handleLogin = () => {
@@ -20,20 +20,29 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
     setIsAuthenticated(false);
   };
 
-  if (loading) {
-    return <div className="loading-screen">Chargement...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
-  }
-
-  return <Dashboard onLogout={handleLogout} />;
+  return (
+    <AppProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route 
+            path="/login" 
+            element={!isAuthenticated ? <Login onLogin={handleLogin} /> : <Navigate to="/" />} 
+          />
+          <Route 
+            path="/" 
+            element={isAuthenticated ? <Dashboard onLogout={handleLogout} /> : <Navigate to="/login" />} 
+          />
+          <Route 
+            path="/preview" 
+            element={isAuthenticated ? <PreviewPage /> : <Navigate to="/login" />} 
+          />
+        </Routes>
+      </BrowserRouter>
+    </AppProvider>
+  );
 }
 
 export default App;

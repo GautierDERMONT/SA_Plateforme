@@ -19,60 +19,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Navbar */
-.navbar {
-  background: white;
-  padding: 12px 40px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--border-color);
+.dashboard-wrapper {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f0f4f9 0%, #e8ecf1 100%);
 }
 
-.nav-logo {
-  font-weight: 700;
-  font-size: 18px;
-}
-
-.nav-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.user-email {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.nav-btn {
-  background: white;
-  border: 1px solid var(--border-color);
-  padding: 8px 18px;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.nav-btn.logout {
-  background: #ef4444;
-  color: white;
-  border-color: #ef4444;
-}
-
-.nav-btn.logout:hover {
-  background: #dc2626;
-}
-
-.nav-btn.active {
-  background: black;
-  color: white;
-  border-color: black;
-}
-
-/* Layout */
-.container {
+.dashboard-container {
   max-width: 760px;
   margin: 60px auto;
   padding: 0 20px;
@@ -91,7 +43,6 @@ body {
   margin-bottom: 40px;
 }
 
-/* Card */
 .main-card {
   background: white;
   border-radius: 16px;
@@ -113,7 +64,6 @@ body {
   color: var(--text-muted);
 }
 
-/* Form */
 .input-group {
   margin-bottom: 24px;
 }
@@ -131,6 +81,13 @@ input[type="text"], select {
   border-radius: 8px;
   border: 1px solid var(--border-color);
   background: #f8fafc;
+  font-size: 14px;
+}
+
+input[type="text"]:focus, select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
 }
 
 .file-input-custom {
@@ -150,9 +107,18 @@ input[type="text"], select {
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
-/* Features List */
+.browse-btn:hover {
+  background: #f1f5f9;
+}
+
+.file-name {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 .features-highlight {
   background-color: #f0f7ff;
   border: 1px solid #e2eefc;
@@ -189,12 +155,24 @@ input[type="text"], select {
 .submit-btn {
   width: 100%;
   padding: 16px;
-  background-color: #71717a;
+  background-color: #0f172a;
   color: white;
   border: none;
   border-radius: 8px;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.submit-btn:hover {
+  background-color: #1e293b;
+  transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+  background-color: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .legal-footer {
