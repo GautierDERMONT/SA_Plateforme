@@ -5,8 +5,21 @@ from app.api.routes import router
 from app.database import engine, Base
 from app.models import user
 import pandas as pd
-import json
 from io import BytesIO
+
+# Import corrigé
+from .transfo import (
+    clean_and_correct_email,
+    clean_and_correct_phone,
+    clean_and_correct_city,
+    clean_and_correct_formation,
+    clean_and_correct_campus,
+    clean_and_correct_zipcode,
+    VALID_DOMAINS
+)
+
+# Import du dictionnaire des codes postaux
+from .postal_codes import get_city_from_postal_code
 
 # Créer les tables dans la base de données
 Base.metadata.create_all(bind=engine)
@@ -22,73 +35,165 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Domain possible pour les adresses mails
-valid_domains = (
-    "@gmail.com", "@yahoo.com", "@outlook.com", "@hotmail.com",
-    "@live.com", "@icloud.com", "@msn.com", "@laposte.net",
-    "@orange.fr", "@sfr.fr", "@free.fr", "@wanadoo.fr",
-    "@aol.com", "@protonmail.com", "@gmx.com", "@gmx.fr", "@mail.com"
-)
-
 app.include_router(router, prefix="/api")
 
 @app.get("/")
 async def root():
     return {"message": "Bienvenue sur l'API SA Plateforme", "docs": "/docs"}
 
-# Nouvelle fonction qui retourne les données JSON pour l'aperçu
+# Route pour l'aperçu avec corrections
 @app.post("/process-and-preview")
 async def process_and_preview(file: UploadFile = File(...)):
-    """Traite le fichier et retourne les données au format JSON pour l'aperçu"""
+    """Traite le fichier et retourne les données corrigées au format JSON"""
     
-    data = pd.read_excel(file.file)
+    # Lire le fichier avec les bons types
+    if file.filename.endswith('.csv'):
+        df = pd.read_csv(file.file, dtype={'Téléphone': str, 'zipcode': str})
+    else:
+        df = pd.read_excel(file.file, dtype={'Téléphone': str, 'zipcode': str})
     
-    # Transformer les données au format attendu par PreviewPage
     processed_rows = []
+    stats = {'email_fixed': 0, 'phone_fixed': 0, 'city_fixed': 0, 'formation_fixed': 0, 'campus_fixed': 0, 'zip_fixed': 0}
     
-    for index, row in data.iterrows():
-        # Nettoie le téléphone
-        telephone = str(row.get("Téléphone", ""))
-        if not telephone.startswith("+") or len(telephone) != 12:
-            if len(telephone) == 10 and telephone.startswith("0"):
-                telephone = "+33" + telephone[1:]
+    for index, row in df.iterrows():
+        errors = []
         
-        # Nettoie l'email
-        email = str(row.get("Email", ""))
-        email_errors = []
-        if not any(email.endswith(domain) for domain in valid_domains):
-            email_errors.append({"field": "email", "message": "Domaine email non reconnu", "type": "warning"})
+        # Récupérer les valeurs (gérer les NaN)
+        raw_nom = row.get("Nom", "")
+        raw_prenom = row.get("Prénom", "")
+        raw_email = row.get("Email", "")
+        raw_phone = row.get("Téléphone", "")
+        raw_zip = row.get("zipcode", "")
+        raw_city = row.get("city", "")
+        raw_formation = row.get("Souhaits de formations :", "")
+        raw_campus = row.get("Choix de campus :", "")
+        raw_classe = row.get("Actuellement, l'étudiant est en :", "")
+        
+        # Convertir en string et gérer les NaN
+        if pd.isna(raw_nom): raw_nom = ""
+        if pd.isna(raw_prenom): raw_prenom = ""
+        if pd.isna(raw_email): raw_email = ""
+        if pd.isna(raw_phone): raw_phone = ""
+        if pd.isna(raw_zip): raw_zip = ""
+        if pd.isna(raw_city): raw_city = ""
+        if pd.isna(raw_formation): raw_formation = ""
+        if pd.isna(raw_campus): raw_campus = ""
+        if pd.isna(raw_classe): raw_classe = ""
+        
+        # Nettoyer les téléphones (enlever .0 à la fin)
+        if isinstance(raw_phone, str) and raw_phone.endswith('.0'):
+            raw_phone = raw_phone[:-2]
+        elif isinstance(raw_phone, float):
+            raw_phone = str(int(raw_phone)) if raw_phone == int(raw_phone) else str(raw_phone)
+        
+        # Nettoyer les emails (enlever les espaces et caractères invisibles)
+        if isinstance(raw_email, str):
+            raw_email = raw_email.strip()
+        
+        # Correction de l'email
+        corrected_email, email_valid, email_msg = clean_and_correct_email(raw_email)
+        if not email_valid:
+            errors.append({"field": "email", "type": "error", "message": email_msg})
+        elif email_msg:
+            errors.append({"field": "email", "type": "warning", "message": email_msg})
+            stats['email_fixed'] += 1
+        
+        # Correction du téléphone
+        corrected_phone, phone_valid, phone_msg = clean_and_correct_phone(raw_phone)
+        if not phone_valid:
+            errors.append({"field": "telephone", "type": "error", "message": phone_msg})
+        elif phone_msg:
+            errors.append({"field": "telephone", "type": "warning", "message": phone_msg})
+            stats['phone_fixed'] += 1
+        
+        # Correction du code postal
+        corrected_zip, zip_valid, zip_msg = clean_and_correct_zipcode(raw_zip)
+        if not zip_valid and zip_msg:
+            errors.append({"field": "codePostal", "type": "error", "message": zip_msg})
+        elif zip_msg:
+            errors.append({"field": "codePostal", "type": "warning", "message": zip_msg})
+            stats['zip_fixed'] += 1
+        
+        # AUTO-REMPLISSAGE DE LA VILLE À PARTIR DU CODE POSTAL
+        corrected_city = raw_city
+        city_msg = None
+        
+        # Si la ville est vide ou absente, on essaie de la trouver via le code postal
+        if (not raw_city or str(raw_city).strip() == "") and corrected_zip and len(corrected_zip) == 5:
+            auto_city = get_city_from_postal_code(corrected_zip)
+            if auto_city:
+                corrected_city = auto_city
+                city_msg = f"Ville auto-remplie depuis le code postal: {auto_city}"
+                errors.append({"field": "ville", "type": "warning", "message": city_msg})
+                stats['city_fixed'] += 1
+                print(f"✅ Auto-remplissage: CP {corrected_zip} → {auto_city}")
+        else:
+            # Sinon on nettoie la ville existante normalement
+            corrected_city, city_valid, city_msg = clean_and_correct_city(raw_city)
+            if city_msg:
+                errors.append({"field": "ville", "type": "warning", "message": city_msg})
+                stats['city_fixed'] += 1
+        
+        # Correction de la formation - uniquement si réel changement
+        corrected_formation, formation_valid, formation_msg = clean_and_correct_formation(raw_formation)
+        if formation_msg and formation_msg.startswith(('Formation corrigée', 'Format corrigé')):
+            errors.append({"field": "formation", "type": "warning", "message": formation_msg})
+            stats['formation_fixed'] += 1
+        elif not formation_valid and formation_msg:
+            errors.append({"field": "formation", "type": "error", "message": formation_msg})
+        
+        # Correction du campus - uniquement si réel changement
+        corrected_campus, campus_valid, campus_msg = clean_and_correct_campus(raw_campus)
+        if campus_msg and campus_msg.startswith(('Campus corrigé', 'Format corrigé')):
+            errors.append({"field": "campus", "type": "warning", "message": campus_msg})
+            stats['campus_fixed'] += 1
+        elif not campus_valid and campus_msg:
+            errors.append({"field": "campus", "type": "error", "message": campus_msg})
         
         processed_rows.append({
             "id": index + 1,
-            "nom": str(row.get("Nom", "")),
-            "prenom": str(row.get("Prénom", "")),
-            "email": email,
-            "telephone": telephone,
-            "codePostal": str(row.get("zipcode", "")),
-            "ville": str(row.get("Ville", "")),
-            "formation": str(row.get("Souhaits de formations :", "")),
-            "campus": str(row.get("Choix de campus :", "")),
-            "classeActuelle": str(row.get("Actuellement, l’étudiant est en :", "")),
+            "nom": str(raw_nom) if raw_nom else "",
+            "prenom": str(raw_prenom) if raw_prenom else "",
+            "email": corrected_email,
+            "telephone": corrected_phone,
+            "codePostal": corrected_zip,
+            "ville": corrected_city,
+            "formation": corrected_formation,
+            "campus": corrected_campus,
+            "classeActuelle": str(raw_classe) if raw_classe else "",
             "dateRentreePrev": "",
-            "errors": email_errors if email_errors else []
+            "errors": errors
         })
+    
+    # Afficher les statistiques
+    print("\n" + "="*50)
+    print("STATISTIQUES DES CORRECTIONS")
+    print("="*50)
+    print(f"📧 Emails corrigés: {stats['email_fixed']}")
+    print(f"📞 Téléphones corrigés: {stats['phone_fixed']}")
+    print(f"📍 Codes postaux corrigés: {stats['zip_fixed']}")
+    print(f"🏙️ Villes auto-remplies: {stats['city_fixed']}")
+    print(f"🎓 Formations corrigées: {stats['formation_fixed']}")
+    print(f"🏫 Campus corrigés: {stats['campus_fixed']}")
+    print("="*50)
+    
+    salon_name = file.filename.replace('.xlsx', '').replace('.xls', '').replace('.csv', '')
     
     return JSONResponse(content={
         "success": True,
         "data": processed_rows,
         "total_rows": len(processed_rows),
-        "salon_name": "Salon importé"
+        "salon_name": salon_name,
+        "stats": stats
     })
 
-# Fonction originale pour télécharger le fichier Excel
+# Route pour l'export Excel original
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     data = pd.read_excel(file.file, usecols="A:E,G:I,V:X,Z", dtype={"Téléphone": str})
     
     from openpyxl import load_workbook
     from openpyxl.styles import PatternFill
-    from io import BytesIO
     
     red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
     start_row = 2
@@ -107,7 +212,7 @@ async def upload_file(file: UploadFile = File(...)):
         ws.cell(row=start_row + i, column=5, value=row["Nom"])
         ws.cell(row=start_row + i, column=6, value=row["Prénom"])
         
-        if not str(row["Email"]).endswith(valid_domains):
+        if not str(row["Email"]).endswith(VALID_DOMAINS):
             ws.cell(row=start_row + i, column=7, value=row["Email"]).fill = red_fill
         else:
             ws.cell(row=start_row + i, column=7, value=row["Email"])
@@ -118,7 +223,7 @@ async def upload_file(file: UploadFile = File(...)):
             ws.cell(row=start_row + i, column=8, value=row["Téléphone"])
         
         ws.cell(row=start_row + i, column=12, value=row["zipcode"])
-        ws.cell(row=start_row + i, column=15, value=row["Actuellement, l’étudiant est en :"])
+        ws.cell(row=start_row + i, column=15, value=row["Actuellement, l'étudiant est en :"])
         ws.cell(row=start_row + i, column=22, value=row["Choix de campus :"])
         ws.cell(row=start_row + i, column=23, value=row["Souhaits de formations :"])
     
