@@ -30,6 +30,9 @@ function Navbar({ user, onLogout }) {
     navigate('/admin');
   };
 
+  // Vérifier si l'utilisateur est administrateur
+  const isAdmin = user?.full_name === 'Administrateur';
+
   if (location.pathname === '/login') {
     return null;
   }
@@ -47,9 +50,12 @@ function Navbar({ user, onLogout }) {
         </div>
         <div className="navbar-actions">
           <span className="user-email">{user?.email || 'Utilisateur'}</span>
-          <button className="navbar-btn admin" onClick={goToAdmin}>
-            Administration
-          </button>
+          {/* 🔒 Le bouton Admin n'apparaît que pour les administrateurs */}
+          {isAdmin && (
+            <button className="navbar-btn admin" onClick={goToAdmin}>
+              Administration
+            </button>
+          )}
           <button className="navbar-btn logout" onClick={handleLogout}>
             Déconnexion
           </button>

@@ -4,6 +4,51 @@ import { useApp } from '../context/AppContext';
 import Navbar from './Navbar';
 import { getCityFromPostalCode, postalCodes } from '../data/postalCodes';
 import './PreviewPage.css';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// Composant pour une colonne déplaçable
+const SortableHeader = ({ id, label, isVisible }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    cursor: 'grab',
+    backgroundColor: isDragging ? '#f0f0f0' : undefined,
+  };
+
+  if (!isVisible) return null;
+
+  return (
+    <th ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      {label}
+      <span style={{ marginLeft: '8px', fontSize: '12px', opacity: 0.6 }}>⋮⋮</span>
+    </th>
+  );
+};
 
 export default function PreviewPage({ onLogout }) {
   const navigate = useNavigate();
@@ -25,6 +70,59 @@ export default function PreviewPage({ onLogout }) {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportFileName, setExportFileName] = useState('');
 
+  // État pour l'ordre des colonnes et leur visibilité
+  const [columnOrder, setColumnOrder] = useState([
+    'id', 'nom', 'prenom', 'email', 'telephone', 
+    'codePostal', 'ville', 'formation', 'campus', 
+    'classeActuelle', 'dateRentreePrev', 'statut', 'info'
+  ]);
+  
+  const [columnVisibility, setColumnVisibility] = useState({
+    id: true,
+    nom: true,
+    prenom: true,
+    email: true,
+    telephone: true,
+    codePostal: true,
+    ville: true,
+    formation: true,
+    campus: true,
+    classeActuelle: true,
+    dateRentreePrev: true,
+    statut: true,
+    info: true,
+  });
+
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+
+  // Configuration des colonnes
+  const columnLabels = {
+    id: '#',
+    nom: 'Nom',
+    prenom: 'Prénom',
+    email: 'Email',
+    telephone: 'Téléphone',
+    codePostal: 'CP',
+    ville: 'Ville',
+    formation: 'Formation',
+    campus: 'Campus',
+    classeActuelle: 'Classe',
+    dateRentreePrev: 'Rentrée',
+    statut: 'Statut',
+    info: 'Info'
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
@@ -40,7 +138,71 @@ export default function PreviewPage({ onLogout }) {
     }
   }, [processedData]);
 
-  // Fonction pour trouver le code postal à partir de la ville (recherche inverse)
+  // Sauvegarder l'ordre des colonnes dans localStorage
+  useEffect(() => {
+    const savedOrder = localStorage.getItem('columnOrder');
+    const savedVisibility = localStorage.getItem('columnVisibility');
+    if (savedOrder) {
+      setColumnOrder(JSON.parse(savedOrder));
+    }
+    if (savedVisibility) {
+      setColumnVisibility(JSON.parse(savedVisibility));
+    }
+  }, []);
+
+  // Sauvegarder l'ordre quand il change
+  useEffect(() => {
+    localStorage.setItem('columnOrder', JSON.stringify(columnOrder));
+  }, [columnOrder]);
+
+  useEffect(() => {
+    localStorage.setItem('columnVisibility', JSON.stringify(columnVisibility));
+  }, [columnVisibility]);
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    
+    if (active.id !== over.id) {
+      setColumnOrder((items) => {
+        const oldIndex = items.indexOf(active.id);
+        const newIndex = items.indexOf(over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
+  const toggleColumnVisibility = (columnKey) => {
+    setColumnVisibility(prev => ({
+      ...prev,
+      [columnKey]: !prev[columnKey]
+    }));
+  };
+
+  const resetColumnOrder = () => {
+    const defaultOrder = [
+      'id', 'nom', 'prenom', 'email', 'telephone', 
+      'codePostal', 'ville', 'formation', 'campus', 
+      'classeActuelle', 'dateRentreePrev', 'statut', 'info'
+    ];
+    setColumnOrder(defaultOrder);
+    setColumnVisibility({
+      id: true,
+      nom: true,
+      prenom: true,
+      email: true,
+      telephone: true,
+      codePostal: true,
+      ville: true,
+      formation: true,
+      campus: true,
+      classeActuelle: true,
+      dateRentreePrev: true,
+      statut: true,
+      info: true,
+    });
+  };
+
+  // Fonction pour trouver le code postal à partir de la ville
   const getPostalCodeFromCity = (city) => {
     if (!city) return null;
     const cityLower = city.toLowerCase().trim();
@@ -82,7 +244,6 @@ export default function PreviewPage({ onLogout }) {
             const validDomains = ['@gmail.com', '@yahoo.com', '@outlook.com', '@hotmail.com', '@live.com', '@icloud.com', '@orange.fr', '@sfr.fr', '@free.fr', '@wanadoo.fr', '@laposte.net', '@protonmail.com'];
             const hasValidDomain = validDomains.some(domain => value.toLowerCase().endsWith(domain));
             
-            // 🔥 CHANGEMENT : Domaine non standard = ERREUR (rouge), plus warning (orange)
             if (!hasValidDomain) {
               newErrors.push({ field: 'email', type: 'error', message: 'Domaine email non standard' });
             }
@@ -121,8 +282,17 @@ export default function PreviewPage({ onLogout }) {
   };
 
   const handleNewFile = () => {
-    clearProcessedData();
-    navigate('/');
+    const confirm = window.confirm(
+      '⚠️ Attention !\n\n' +
+      'Si vous importez un nouveau fichier, les modifications que vous avez apportées ' +
+      'au fichier actuel seront perdues.\n\n' +
+      'Confirmez-vous vouloir continuer ?'
+    );
+    
+    if (confirm) {
+      clearProcessedData();
+      navigate('/');
+    }
   };
 
   // Fonction principale d'édition avec auto-remplissage bidirectionnel
@@ -141,7 +311,6 @@ export default function PreviewPage({ onLogout }) {
         return prev;
       }
       
-      // Garder les autres erreurs (sauf celles du champ modifié)
       const otherErrors = (currentRow.errors || []).filter(e => e.field !== field);
       
       let updatedRow = { 
@@ -149,59 +318,44 @@ export default function PreviewPage({ onLogout }) {
         [field]: value,
       };
       
-      // SENS 1: Code Postal → Ville (auto-remplissage)
+      // SENS 1: Code Postal → Ville
       if (field === 'codePostal' && value) {
         const city = getCityFromPostalCode(value);
-        console.log(`🔍 Recherche ville pour CP "${value}":`, city);
-        
         if (city) {
           updatedRow.ville = city;
-          console.log(`✅ Auto-remplissage réussi: CP ${value} → ${city}`);
-          
           const existingCityWarning = otherErrors.findIndex(e => e.field === 'ville');
           const warningMessage = {
             field: 'ville',
             type: 'warning',
             message: `Ville auto-remplie depuis le code postal: ${city}`
           };
-          
           if (existingCityWarning !== -1) {
             otherErrors[existingCityWarning] = warningMessage;
           } else {
             otherErrors.push(warningMessage);
           }
-        } else {
-          console.log(`❌ Aucune ville trouvée pour le CP ${value}`);
         }
       }
       
-      // SENS 2: Ville → Code Postal (auto-remplissage)
+      // SENS 2: Ville → Code Postal
       if (field === 'ville' && value) {
         const postalCode = getPostalCodeFromCity(value);
-        console.log(`🔍 Recherche CP pour ville "${value}":`, postalCode);
-        
         if (postalCode) {
           updatedRow.codePostal = postalCode;
-          console.log(`✅ Auto-remplissage réussi: Ville ${value} → CP ${postalCode}`);
-          
           const existingZipWarning = otherErrors.findIndex(e => e.field === 'codePostal');
           const warningMessage = {
             field: 'codePostal',
             type: 'warning',
             message: `Code postal auto-rempli depuis la ville: ${postalCode}`
           };
-          
           if (existingZipWarning !== -1) {
             otherErrors[existingZipWarning] = warningMessage;
           } else {
             otherErrors.push(warningMessage);
           }
-        } else {
-          console.log(`❌ Aucun CP trouvé pour la ville ${value}`);
         }
       }
       
-      // Valider le champ modifié après auto-remplissage
       const newFieldErrors = validateField(field, updatedRow[field], rowIndex);
       const updatedErrors = [...otherErrors, ...newFieldErrors];
       updatedRow.errors = updatedErrors;
@@ -232,21 +386,16 @@ export default function PreviewPage({ onLogout }) {
 
       const result = await response.json();
       
-      console.log("Données reçues du backend:", result.data[0]);
-      
       const dataArray = Array.isArray(result.data) ? result.data : [];
       
-      // Auto-remplir les villes à partir des codes postaux à l'import
       const enrichedData = dataArray.map(row => {
         const newRow = { ...row };
         
-        // Si la ville est vide mais qu'on a un code postal valide
+        // Auto-remplissage ville
         if ((!newRow.ville || newRow.ville === '') && newRow.codePostal) {
           const city = getCityFromPostalCode(newRow.codePostal);
           if (city) {
             newRow.ville = city;
-            console.log(`Auto-remplissage (import): CP ${newRow.codePostal} → ${city}`);
-            
             if (!newRow.errors) newRow.errors = [];
             newRow.errors.push({
               field: 'ville',
@@ -256,13 +405,11 @@ export default function PreviewPage({ onLogout }) {
           }
         }
         
-        // Si le code postal est vide mais qu'on a une ville
+        // Auto-remplissage code postal
         if ((!newRow.codePostal || newRow.codePostal === '') && newRow.ville) {
           const postalCode = getPostalCodeFromCity(newRow.ville);
           if (postalCode) {
             newRow.codePostal = postalCode;
-            console.log(`Auto-remplissage (import): Ville ${newRow.ville} → CP ${postalCode}`);
-            
             if (!newRow.errors) newRow.errors = [];
             newRow.errors.push({
               field: 'codePostal',
@@ -287,37 +434,40 @@ export default function PreviewPage({ onLogout }) {
       event.target.value = '';
     }
   };
-  
-  // Ouvrir la modale d'export
+
   const openExportModal = () => {
     const defaultName = `${salonName || 'export'}_${new Date().toISOString().split('T')[0]}`;
     setExportFileName(defaultName);
     setExportModalOpen(true);
   };
 
-  // Exporter avec le nom choisi
   const handleExport = () => {
     if (!Array.isArray(editingData) || editingData.length === 0) {
       alert('Aucune donnée à exporter');
       return;
     }
     
-    const headers = ['Nom', 'Prénom', 'Email', 'Téléphone', 'Code Postal', 'Ville', 'Formation', 'Campus', 'Classe', 'Date Rentrée'];
+    const visibleColumns = columnOrder.filter(colId => columnVisibility[colId] && colId !== 'statut' && colId !== 'info');
+    
+    const headers = visibleColumns.map(colId => columnLabels[colId]);
     const csvRows = [headers];
     
     editingData.forEach(row => {
-      csvRows.push([
-        row.nom || '',
-        row.prenom || '',
-        row.email || '',
-        row.telephone || '',
-        row.codePostal || '',
-        row.ville || '',
-        row.formation || '',
-        row.campus || '',
-        row.classeActuelle || '',
-        row.dateRentreePrev || ''
-      ]);
+      const rowData = visibleColumns.map(colId => {
+        if (colId === 'id') return row.id || '';
+        if (colId === 'nom') return row.nom || '';
+        if (colId === 'prenom') return row.prenom || '';
+        if (colId === 'email') return row.email || '';
+        if (colId === 'telephone') return row.telephone || '';
+        if (colId === 'codePostal') return row.codePostal || '';
+        if (colId === 'ville') return row.ville || '';
+        if (colId === 'formation') return row.formation || '';
+        if (colId === 'campus') return row.campus || '';
+        if (colId === 'classeActuelle') return row.classeActuelle || '';
+        if (colId === 'dateRentreePrev') return row.dateRentreePrev || '';
+        return '';
+      });
+      csvRows.push(rowData);
     });
     
     const csvContent = csvRows.map(row => row.join(',')).join('\n');
@@ -407,6 +557,37 @@ export default function PreviewPage({ onLogout }) {
             <p className="row-count">{editingData.length} lignes traitées</p>
           </div>
           <div className="header-buttons">
+            <div className="column-controls">
+              <button 
+                className="column-menu-btn" 
+                onClick={() => setShowColumnMenu(!showColumnMenu)}
+              >
+                📋 Colonnes
+              </button>
+              {showColumnMenu && (
+                <div className="column-menu-dropdown">
+                  <div className="column-menu-header">
+                    <strong>Afficher/Masquer les colonnes</strong>
+                    <button onClick={resetColumnOrder} className="reset-order-btn">
+                      Réinitialiser
+                    </button>
+                  </div>
+                  {Object.keys(columnLabels).map(key => (
+                    <label key={key} className="column-menu-item">
+                      <input
+                        type="checkbox"
+                        checked={columnVisibility[key]}
+                        onChange={() => toggleColumnVisibility(key)}
+                      />
+                      {columnLabels[key]}
+                    </label>
+                  ))}
+                  <div className="column-menu-hint">
+                    💡 Glissez les en-têtes pour réorganiser
+                  </div>
+                </div>
+              )}
+            </div>
             <button className="new-file-btn" onClick={handleNewFile}>
               Nouveau fichier
             </button>
@@ -444,122 +625,108 @@ export default function PreviewPage({ onLogout }) {
 
         <div className="table-container">
           <div className="table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Nom</th>
-                  <th>Prénom</th>
-                  <th>Email</th>
-                  <th>Téléphone</th>
-                  <th>CP</th>
-                  <th>Ville</th>
-                  <th>Formation</th>
-                  <th>Campus</th>
-                  <th>Classe</th>
-                  <th>Rentrée</th>
-                  <th>Statut</th>
-                  <th>Info</th>
-                </tr>
-              </thead>
-              <tbody>
-                {editingData.map((row, index) => {
-                  const hasErrors = row.errors?.some(e => e.type === 'error') || false;
-                  const hasWarnings = row.errors?.some(e => e.type === 'warning') || false;
-                  const hasAnyIssue = hasErrors || hasWarnings;
-                  
-                  return (
-                    <tr key={index} className={hasErrors ? 'row-error' : hasWarnings ? 'row-warning' : ''}>
-                      <td className="font-medium">{index + 1}</td>
-                      <td>
-                        <input 
-                          value={row.nom || ''} 
-                          onChange={(e) => handleCellEdit(index, 'nom', e.target.value)} 
-                          className={`cell-input ${row.errors?.some(e => e.field === 'nom' && e.type === 'error') ? 'input-error' : ''}`} 
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          value={row.prenom || ''} 
-                          onChange={(e) => handleCellEdit(index, 'prenom', e.target.value)} 
-                          className={`cell-input ${row.errors?.some(e => e.field === 'prenom' && e.type === 'error') ? 'input-error' : ''}`} 
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          value={row.email || ''} 
-                          onChange={(e) => handleCellEdit(index, 'email', e.target.value)} 
-                          className={`cell-input ${row.errors?.some(e => e.field === 'email' && e.type === 'error') ? 'input-error' : row.errors?.some(e => e.field === 'email' && e.type === 'warning') ? 'input-warning' : ''}`} 
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          value={row.telephone || ''} 
-                          onChange={(e) => handleCellEdit(index, 'telephone', e.target.value)} 
-                          className={`cell-input ${row.errors?.some(e => e.field === 'telephone' && e.type === 'error') ? 'input-error' : row.errors?.some(e => e.field === 'telephone' && e.type === 'warning') ? 'input-warning' : ''}`} 
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          value={row.codePostal || ''} 
-                          onChange={(e) => handleCellEdit(index, 'codePostal', e.target.value)} 
-                          className={`cell-input ${row.errors?.some(e => e.field === 'codePostal' && e.type === 'error') ? 'input-error' : ''}`} 
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          value={row.ville || ''} 
-                          onChange={(e) => handleCellEdit(index, 'ville', e.target.value)} 
-                          className={`cell-input ${row.errors?.some(e => e.field === 'ville' && e.type === 'warning') ? 'input-warning' : ''}`} 
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          value={row.formation || ''} 
-                          onChange={(e) => handleCellEdit(index, 'formation', e.target.value)} 
-                          className={`cell-input ${row.errors?.some(e => e.field === 'formation' && e.type === 'warning') ? 'input-warning' : ''}`} 
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          value={row.campus || ''} 
-                          onChange={(e) => handleCellEdit(index, 'campus', e.target.value)} 
-                          className={`cell-input ${row.errors?.some(e => e.field === 'campus' && e.type === 'warning') ? 'input-warning' : ''}`} 
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          value={row.classeActuelle || ''} 
-                          onChange={(e) => handleCellEdit(index, 'classeActuelle', e.target.value)} 
-                          className="cell-input" 
-                        />
-                      </td>
-                      <td>
-                        <input 
-                          value={row.dateRentreePrev || ''} 
-                          onChange={(e) => handleCellEdit(index, 'dateRentreePrev', e.target.value)} 
-                          className="cell-input" 
-                        />
-                      </td>
-                      <td>
-                        {hasErrors ? <span className="badge badge-error">Erreur</span> : hasWarnings ? <span className="badge badge-warning">Corrigé</span> : <span className="badge badge-success">OK</span>}
-                      </td>
-                      <td>
-                        {hasAnyIssue && (
-                          <button 
-                            className="info-btn"
-                            onClick={() => openErrorModal(index, row)}
-                            title="Voir les détails"
-                          >
-                            ℹ️
-                          </button>
-                        )}
-                      </td>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <table className="data-table">
+                <thead>
+                  <SortableContext
+                    items={columnOrder}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    <tr>
+                      {columnOrder.map((colId) => {
+                        if (!columnVisibility[colId]) return null;
+                        return (
+                          <SortableHeader
+                            key={colId}
+                            id={colId}
+                            label={columnLabels[colId]}
+                            isVisible={columnVisibility[colId]}
+                          />
+                        );
+                      })}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </SortableContext>
+                </thead>
+                <tbody>
+                  {editingData.map((row, index) => {
+                    const hasErrors = row.errors?.some(e => e.type === 'error') || false;
+                    const hasWarnings = row.errors?.some(e => e.type === 'warning') || false;
+                    const hasAnyIssue = hasErrors || hasWarnings;
+                    
+                    return (
+                      <tr key={index} className={hasErrors ? 'row-error' : hasWarnings ? 'row-warning' : ''}>
+                        {columnOrder.map((colId) => {
+                          if (!columnVisibility[colId]) return null;
+                          
+                          if (colId === 'statut') {
+                            return (
+                              <td key={colId}>
+                                {hasErrors ? <span className="badge badge-error">Erreur</span> : 
+                                 hasWarnings ? <span className="badge badge-warning">Corrigé</span> : 
+                                 <span className="badge badge-success">OK</span>}
+                              </td>
+                            );
+                          }
+                          
+                          if (colId === 'info') {
+                            return (
+                              <td key={colId}>
+                                {hasAnyIssue && (
+                                  <button 
+                                    className="info-btn"
+                                    onClick={() => openErrorModal(index, row)}
+                                    title="Voir les détails"
+                                  >
+                                    ℹ️
+                                  </button>
+                                )}
+                              </td>
+                            );
+                          }
+                          
+                          const fieldMap = {
+                            id: 'id',
+                            nom: 'nom',
+                            prenom: 'prenom',
+                            email: 'email',
+                            telephone: 'telephone',
+                            codePostal: 'codePostal',
+                            ville: 'ville',
+                            formation: 'formation',
+                            campus: 'campus',
+                            classeActuelle: 'classeActuelle',
+                            dateRentreePrev: 'dateRentreePrev'
+                          };
+                          
+                          const fieldName = fieldMap[colId];
+                          const value = row[fieldName] || '';
+                          const fieldError = row.errors?.some(e => e.field === fieldName && e.type === 'error');
+                          const fieldWarning = row.errors?.some(e => e.field === fieldName && e.type === 'warning');
+                          
+                          let inputClass = "cell-input";
+                          if (fieldError) inputClass += " input-error";
+                          else if (fieldWarning) inputClass += " input-warning";
+                          
+                          return (
+                            <td key={colId}>
+                              <input 
+                                value={value}
+                                onChange={(e) => handleCellEdit(index, fieldName, e.target.value)} 
+                                className={inputClass}
+                              />
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </DndContext>
           </div>
         </div>
       </main>

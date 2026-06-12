@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
+import axios from 'axios';
 import './AdminPage.css';
+
+const API_URL = 'http://localhost:5000/api';
 
 export default function AdminPage({ onLogout }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [formations, setFormations] = useState([]);
   const [enrollmentDates, setEnrollmentDates] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   const [newFormationName, setNewFormationName] = useState('');
   const [newFormationCampus, setNewFormationCampus] = useState('');
@@ -19,97 +24,177 @@ export default function AdminPage({ onLogout }) {
   const [newEnrollmentDate, setNewEnrollmentDate] = useState('');
   const [activeTab, setActiveTab] = useState('formations');
 
+  // Fonction pour récupérer le token
+  const getAuthHeaders = () => ({
+    headers: { 
+      Authorization: `Bearer ${localStorage.getItem('token')}` 
+    }
+  });
+
+  // Charger les formations depuis l'API
+  const fetchFormations = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/admin/formations`, getAuthHeaders());
+      setFormations(response.data);
+    } catch (err) {
+      console.error('Erreur chargement formations:', err);
+      if (err.response?.status === 403) {
+        alert('Accès non autorisé. Vous devez être administrateur.');
+        navigate('/');
+      }
+    }
+  };
+
+  // Charger les dates de rentrée depuis l'API
+  const fetchEnrollmentDates = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/admin/enrollment-dates`, getAuthHeaders());
+      setEnrollmentDates(response.data);
+    } catch (err) {
+      console.error('Erreur chargement dates:', err);
+    }
+  };
+
   useEffect(() => {
     const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
+    
+    if (!userData) {
+      navigate('/login');
+      return;
     }
     
-    const savedFormations = localStorage.getItem('formations');
-    if (savedFormations) {
-      setFormations(JSON.parse(savedFormations));
-    } else {
-      setFormations([
-        { id: '1', name: 'E3IN', campus: 'Pontoise' },
-        { id: '2', name: 'E3COM', campus: 'Paris' },
-      ]);
+    const parsedUser = JSON.parse(userData);
+    setUser(parsedUser);
+    
+    // Vérification admin
+    if (parsedUser.full_name !== 'Administrateur') {
+      navigate('/');
+      return;
     }
     
-    const savedDates = localStorage.getItem('enrollmentDates');
-    if (savedDates) {
-      setEnrollmentDates(JSON.parse(savedDates));
-    } else {
-      setEnrollmentDates([
-        { id: '1', year: '2029-2030', date: '2029-09-15' },
-        { id: '2', year: '2030-2031', date: '2030-09-14' },
-      ]);
-    }
-  }, []);
+    setIsAuthorized(true);
+    
+    // Charger les données depuis l'API
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchFormations(), fetchEnrollmentDates()]);
+      setLoading(false);
+    };
+    
+    loadData();
+  }, [navigate]);
 
-  const saveFormations = (newFormations) => {
-    setFormations(newFormations);
-    localStorage.setItem('formations', JSON.stringify(newFormations));
-  };
+  if (!isAuthorized || !user) {
+    return null;
+  }
 
-  const saveEnrollmentDates = (newDates) => {
-    setEnrollmentDates(newDates);
-    localStorage.setItem('enrollmentDates', JSON.stringify(newDates));
-  };
-
-  const handleAddFormation = () => {
-    if (newFormationName.trim()) {
-      const newFormation = {
-        id: Date.now().toString(),
-        name: newFormationName.trim(),
-        campus: newFormationCampus.trim() || undefined
-      };
-      saveFormations([...formations, newFormation]);
-      setNewFormationName('');
-      setNewFormationCampus('');
-    }
-  };
-
-  const handleStartEditFormation = (formation) => {
-    setEditingFormationId(formation.id);
-    setEditFormationName(formation.name);
-    setEditFormationCampus(formation.campus || '');
-  };
-
-  const handleSaveFormation = (id) => {
-    const updatedFormations = formations.map(formation =>
-      formation.id === id
-        ? { ...formation, name: editFormationName.trim(), campus: editFormationCampus.trim() || undefined }
-        : formation
+  if (loading) {
+    return (
+      <div className="admin-page">
+        <Navbar user={user} onLogout={onLogout} />
+        <div className="admin-container">
+          <div className="loading-spinner">Chargement des données depuis Supabase...</div>
+        </div>
+      </div>
     );
-    saveFormations(updatedFormations);
-    setEditingFormationId(null);
-  };
+  }
 
-  const handleCancelEdit = () => {
-    setEditingFormationId(null);
-    setEditFormationName('');
-    setEditFormationCampus('');
-  };
-
-  const handleDeleteFormation = (id) => {
-    saveFormations(formations.filter(formation => formation.id !== id));
-  };
-
-  const handleAddEnrollmentDate = () => {
-    if (newEnrollmentYear.trim() && newEnrollmentDate.trim()) {
-      const newDate = {
-        id: Date.now().toString(),
-        year: newEnrollmentYear.trim(),
-        date: newEnrollmentDate.trim()
-      };
-      saveEnrollmentDates([...enrollmentDates, newDate]);
-      setNewEnrollmentYear('');
-      setNewEnrollmentDate('');
+  // Ajouter une formation
+  const handleAddFormation = async () => {
+    if (newFormationName.trim()) {
+      try {
+        await axios.post(
+          `${API_URL}/admin/formations`,
+          null,
+          { 
+            params: { 
+              name: newFormationName.trim(), 
+              campus: newFormationCampus.trim() || null 
+            },
+            ...getAuthHeaders()
+          }
+        );
+        await fetchFormations(); // Recharger la liste
+        setNewFormationName('');
+        setNewFormationCampus('');
+      } catch (err) {
+        console.error('Erreur ajout formation:', err);
+        alert('Erreur lors de l\'ajout');
+      }
     }
   };
 
-  const handleDeleteEnrollmentDate = (id) => {
-    saveEnrollmentDates(enrollmentDates.filter(date => date.id !== id));
+  // Modifier une formation
+  const handleSaveFormation = async (id) => {
+    try {
+      await axios.put(
+        `${API_URL}/admin/formations/${id}`,
+        null,
+        { 
+          params: { 
+            name: editFormationName.trim(), 
+            campus: editFormationCampus.trim() || null 
+          },
+          ...getAuthHeaders()
+        }
+      );
+      await fetchFormations();
+      setEditingFormationId(null);
+    } catch (err) {
+      console.error('Erreur modification formation:', err);
+      alert('Erreur lors de la modification');
+    }
+  };
+
+  // Supprimer une formation
+  const handleDeleteFormation = async (id) => {
+    if (window.confirm('Supprimer cette formation ?')) {
+      try {
+        await axios.delete(`${API_URL}/admin/formations/${id}`, getAuthHeaders());
+        await fetchFormations();
+      } catch (err) {
+        console.error('Erreur suppression formation:', err);
+        alert('Erreur lors de la suppression');
+      }
+    }
+  };
+
+  // Ajouter une date de rentrée
+  const handleAddEnrollmentDate = async () => {
+    if (newEnrollmentYear.trim() && newEnrollmentDate.trim()) {
+      try {
+        await axios.post(
+          `${API_URL}/admin/enrollment-dates`,
+          null,
+          { 
+            params: { 
+              year: newEnrollmentYear.trim(), 
+              date: newEnrollmentDate.trim() 
+            },
+            ...getAuthHeaders()
+          }
+        );
+        await fetchEnrollmentDates();
+        setNewEnrollmentYear('');
+        setNewEnrollmentDate('');
+      } catch (err) {
+        console.error('Erreur ajout date:', err);
+        alert('Erreur lors de l\'ajout');
+      }
+    }
+  };
+
+  // Supprimer une date de rentrée
+  const handleDeleteEnrollmentDate = async (id) => {
+    if (window.confirm('Supprimer cette date de rentrée ?')) {
+      try {
+        await axios.delete(`${API_URL}/admin/enrollment-dates/${id}`, getAuthHeaders());
+        await fetchEnrollmentDates();
+      } catch (err) {
+        console.error('Erreur suppression date:', err);
+        alert('Erreur lors de la suppression');
+      }
+    }
   };
 
   return (
@@ -203,11 +288,20 @@ export default function AdminPage({ onLogout }) {
                         {editingFormationId === formation.id ? (
                           <div className="action-buttons">
                             <button className="save-btn" onClick={() => handleSaveFormation(formation.id)}>✓</button>
-                            <button className="cancel-btn" onClick={handleCancelEdit}>✗</button>
+                            <button className="cancel-btn" onClick={() => setEditingFormationId(null)}>✗</button>
                           </div>
                         ) : (
                           <div className="action-buttons">
-                            <button className="edit-btn" onClick={() => handleStartEditFormation(formation)}>✏️</button>
+                            <button 
+                              className="edit-btn" 
+                              onClick={() => {
+                                setEditingFormationId(formation.id);
+                                setEditFormationName(formation.name);
+                                setEditFormationCampus(formation.campus || '');
+                              }}
+                            >
+                              ✏️
+                            </button>
                             <button className="delete-btn" onClick={() => handleDeleteFormation(formation.id)}>🗑️</button>
                           </div>
                         )}

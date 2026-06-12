@@ -40,6 +40,7 @@ function Dashboard({ onLogout }) {
 
   const handleProcess = async (e) => {
     e.preventDefault();
+    
     if (!newItemName) return alert('Veuillez entrer un nom de salon.');
     if (!file) return alert('Veuillez sélectionner un fichier.');
   
