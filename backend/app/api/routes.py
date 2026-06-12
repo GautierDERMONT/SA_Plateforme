@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.auth import authenticate_user, create_access_token, get_current_user
+from app.models.administration import Formation, EnrollmentDate
+from datetime import date as date_type
 
+# ⚠️ CRUCIAL : Créer le router AVANT de l'utiliser
 router = APIRouter()
 
 # ============ MODÈLES PYDANTIC ============
@@ -52,7 +55,11 @@ async def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 @router.get("/me")
 async def get_me(current_user: User = Depends(get_current_user)):
-    return {"id": current_user.id, "email": current_user.email, "full_name": current_user.full_name}
+    return {
+        "id": current_user.id, 
+        "email": current_user.email, 
+        "full_name": current_user.full_name
+    }
 
 # ============ ROUTES EXISTANTES ============
 @router.get("/health")
@@ -93,3 +100,135 @@ async def delete_item(item_id: int, current_user: User = Depends(get_current_use
             items_db.pop(i)
             return {"message": "Item deleted"}
     raise HTTPException(status_code=404, detail="Item not found")
+
+# ============ ROUTES ADMIN FORMATIONS ============
+@router.get("/admin/formations")
+async def admin_get_formations(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.full_name != "Administrateur":
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    formations = db.query(Formation).order_by(Formation.id).all()
+    return formations
+
+@router.post("/admin/formations")
+async def admin_create_formation(
+    name: str,
+    campus: str = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.full_name != "Administrateur":
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    formation = Formation(name=name, campus=campus)
+    db.add(formation)
+    db.commit()
+    db.refresh(formation)
+    return formation
+
+@router.put("/admin/formations/{formation_id}")
+async def admin_update_formation(
+    formation_id: int,
+    name: str,
+    campus: str = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.full_name != "Administrateur":
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    formation = db.query(Formation).filter(Formation.id == formation_id).first()
+    if not formation:
+        raise HTTPException(status_code=404, detail="Formation non trouvée")
+    
+    formation.name = name
+    formation.campus = campus
+    db.commit()
+    db.refresh(formation)
+    return formation
+
+@router.delete("/admin/formations/{formation_id}")
+async def admin_delete_formation(
+    formation_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.full_name != "Administrateur":
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    formation = db.query(Formation).filter(Formation.id == formation_id).first()
+    if not formation:
+        raise HTTPException(status_code=404, detail="Formation non trouvée")
+    
+    db.delete(formation)
+    db.commit()
+    return {"message": "Formation supprimée"}
+
+# ============ ROUTES ADMIN DATES DE RENTRÉE ============
+@router.get("/admin/enrollment-dates")
+async def admin_get_enrollment_dates(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.full_name != "Administrateur":
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    dates = db.query(EnrollmentDate).order_by(EnrollmentDate.year).all()
+    return dates
+
+@router.post("/admin/enrollment-dates")
+async def admin_create_enrollment_date(
+    year: str,
+    date: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.full_name != "Administrateur":
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    enrollment_date = EnrollmentDate(year=year, date=date_type.fromisoformat(date))
+    db.add(enrollment_date)
+    db.commit()
+    db.refresh(enrollment_date)
+    return enrollment_date
+
+@router.put("/admin/enrollment-dates/{date_id}")
+async def admin_update_enrollment_date(
+    date_id: int,
+    year: str,
+    date: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.full_name != "Administrateur":
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    enrollment_date = db.query(EnrollmentDate).filter(EnrollmentDate.id == date_id).first()
+    if not enrollment_date:
+        raise HTTPException(status_code=404, detail="Date non trouvée")
+    
+    enrollment_date.year = year
+    enrollment_date.date = date_type.fromisoformat(date)
+    db.commit()
+    db.refresh(enrollment_date)
+    return enrollment_date
+
+@router.delete("/admin/enrollment-dates/{date_id}")
+async def admin_delete_enrollment_date(
+    date_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.full_name != "Administrateur":
+        raise HTTPException(status_code=403, detail="Accès non autorisé")
+    
+    enrollment_date = db.query(EnrollmentDate).filter(EnrollmentDate.id == date_id).first()
+    if not enrollment_date:
+        raise HTTPException(status_code=404, detail="Date non trouvée")
+    
+    db.delete(enrollment_date)
+    db.commit()
+    return {"message": "Date supprimée"}

@@ -56,6 +56,21 @@ CAMPUS_CORRECTION = {
     "paris": "Paris (75)", "paris (75)": "Paris (75)",
 }
 
+# ✅ NOUVEAU Dictionnaire pour l'attribution auto du campus selon la formation
+FORMATION_TO_CAMPUS = {
+    "E3IN": "Pontoise (95)",
+    "E3COM": "Paris (75)",
+    "Bachelor Coding & IA": "Pontoise (95)",
+    "Bachelor DSNS (Cyber)": "Pontoise (95)",
+    "Bachelor Informatique": "Pontoise (95)",
+    "Cycle ingénieur": "Pontoise (95)",
+    "Cycle Ingenieur": "Pontoise (95)",
+    "Mastère Coding & IA": "Paris (75)",
+    "Mastere Coding & IA": "Paris (75)",
+    "Prépa ingénieur": "Pontoise (95)",
+    "Prepa ingenieur": "Pontoise (95)",
+}
+
 def normalize_text(text):
     if pd.isna(text) or not isinstance(text, str):
         return ""
@@ -101,7 +116,7 @@ def clean_and_correct_email(email):
         if email.endswith(domain):
             return email, True, None
     
-    # 🔥 CHANGEMENT ICI : Domaine non standard = ERREUR
+    # Domaine non standard = ERREUR
     return email, False, f"Domaine email non standard: {email.split('@')[-1] if '@' in email else email}"
 
 def clean_and_correct_phone(phone):
@@ -177,19 +192,33 @@ def clean_and_correct_formation(formation):
     
     return formation_str, True, None
 
-def clean_and_correct_campus(campus):
+# ✅ FONCTION MODIFIÉE : accepte maintenant un paramètre formation en option
+def clean_and_correct_campus(campus, formation=None):
+    """Corrige le campus, avec auto-attribution basée sur la formation si campus vide"""
+    
+    # Si campus vide ou None
     if pd.isna(campus) or not isinstance(campus, str) or str(campus).strip() == "":
+        # Essayer d'attribuer selon la formation
+        if formation and formation in FORMATION_TO_CAMPUS:
+            corrected = FORMATION_TO_CAMPUS[formation]
+            return corrected, True, f"Campus auto-attribué selon la formation: {corrected}"
         return "", True, None
     
     campus_str = str(campus).strip()
     original = campus_str
     normalized = normalize_text(campus_str)
     
+    # Correction des fautes communes
     for wrong, correct in CAMPUS_CORRECTION.items():
         if wrong in normalized or normalized == wrong:
             if correct != original:
                 return correct, True, f"Campus corrigé: {original} → {correct}"
             return correct, True, None
+    
+    # Mettre la première lettre en majuscule si nécessaire
+    corrected = campus_str.title()
+    if corrected != original:
+        return corrected, True, f"Format corrigé: {original} → {corrected}"
     
     return campus_str, True, None
 

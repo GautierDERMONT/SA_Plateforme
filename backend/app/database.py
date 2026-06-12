@@ -4,14 +4,11 @@ from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  # Charge les variables depuis .env
+load_dotenv()
 
-
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:3XXSCYJrV4RFrSfk@db.scnkgzyvbsecfykjicdc.supabase.co:5432/postgres")
-
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 engine = create_engine(DATABASE_URL)
-
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

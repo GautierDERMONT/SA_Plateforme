@@ -1,7 +1,8 @@
 # Backend
 venv/
-backend/__pycache__/
-backend/*.pyc
+__pycache__/
+**/__pycache__/
+*.pyc
 backend/.env
 backend/*.log
 backend/data.json

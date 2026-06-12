@@ -4,10 +4,11 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from app.api.routes import router
 from app.database import engine, Base
 from app.models import user
+from app.models.administration import Formation, EnrollmentDate
 import pandas as pd
 from io import BytesIO
 
-# Import corrigé
+# Import des modules internes
 from .transfo import (
     clean_and_correct_email,
     clean_and_correct_phone,
@@ -17,9 +18,8 @@ from .transfo import (
     clean_and_correct_zipcode,
     VALID_DOMAINS
 )
-
-# Import du dictionnaire des codes postaux
 from .postal_codes import get_city_from_postal_code
+from .rentree import calculate_rentree_date  # ← NOUVEAU
 
 # Créer les tables dans la base de données
 Base.metadata.create_all(bind=engine)
@@ -53,7 +53,11 @@ async def process_and_preview(file: UploadFile = File(...)):
         df = pd.read_excel(file.file, dtype={'Téléphone': str, 'zipcode': str})
     
     processed_rows = []
-    stats = {'email_fixed': 0, 'phone_fixed': 0, 'city_fixed': 0, 'formation_fixed': 0, 'campus_fixed': 0, 'zip_fixed': 0}
+    stats = {
+        'email_fixed': 0, 'phone_fixed': 0, 'city_fixed': 0, 
+        'formation_fixed': 0, 'campus_fixed': 0, 'zip_fixed': 0, 
+        'rentree_fixed': 0
+    }
     
     for index, row in df.iterrows():
         errors = []
@@ -67,7 +71,16 @@ async def process_and_preview(file: UploadFile = File(...)):
         raw_city = row.get("city", "")
         raw_formation = row.get("Souhaits de formations :", "")
         raw_campus = row.get("Choix de campus :", "")
+        # Essayer les deux apostrophes
         raw_classe = row.get("Actuellement, l'étudiant est en :", "")
+        if not raw_classe or pd.isna(raw_classe):
+            raw_classe = row.get("Actuellement, l’étudiant est en :", "") 
+        if not raw_classe or pd.isna(raw_classe):
+            raw_classe = row.get("Actuellement, l'étudiant est en", "")
+        if not raw_classe or pd.isna(raw_classe):
+            raw_classe = row.get("Actuellement, l’étudiant est en", "")
+        print(f"🔍 DEBUG - raw_classe = '{raw_classe}'")  
+
         
         # Convertir en string et gérer les NaN
         if pd.isna(raw_nom): raw_nom = ""
@@ -86,7 +99,7 @@ async def process_and_preview(file: UploadFile = File(...)):
         elif isinstance(raw_phone, float):
             raw_phone = str(int(raw_phone)) if raw_phone == int(raw_phone) else str(raw_phone)
         
-        # Nettoyer les emails (enlever les espaces et caractères invisibles)
+        # Nettoyer les emails
         if isinstance(raw_email, str):
             raw_email = raw_email.strip()
         
@@ -114,27 +127,22 @@ async def process_and_preview(file: UploadFile = File(...)):
             errors.append({"field": "codePostal", "type": "warning", "message": zip_msg})
             stats['zip_fixed'] += 1
         
-        # AUTO-REMPLISSAGE DE LA VILLE À PARTIR DU CODE POSTAL
+        # Auto-remplissage ville depuis code postal
         corrected_city = raw_city
-        city_msg = None
-        
-        # Si la ville est vide ou absente, on essaie de la trouver via le code postal
         if (not raw_city or str(raw_city).strip() == "") and corrected_zip and len(corrected_zip) == 5:
             auto_city = get_city_from_postal_code(corrected_zip)
             if auto_city:
                 corrected_city = auto_city
-                city_msg = f"Ville auto-remplie depuis le code postal: {auto_city}"
-                errors.append({"field": "ville", "type": "warning", "message": city_msg})
+                errors.append({"field": "ville", "type": "warning", "message": f"Ville auto-remplie depuis le code postal: {auto_city}"})
                 stats['city_fixed'] += 1
                 print(f"✅ Auto-remplissage: CP {corrected_zip} → {auto_city}")
         else:
-            # Sinon on nettoie la ville existante normalement
             corrected_city, city_valid, city_msg = clean_and_correct_city(raw_city)
             if city_msg:
                 errors.append({"field": "ville", "type": "warning", "message": city_msg})
                 stats['city_fixed'] += 1
         
-        # Correction de la formation - uniquement si réel changement
+        # Correction de la formation
         corrected_formation, formation_valid, formation_msg = clean_and_correct_formation(raw_formation)
         if formation_msg and formation_msg.startswith(('Formation corrigée', 'Format corrigé')):
             errors.append({"field": "formation", "type": "warning", "message": formation_msg})
@@ -142,13 +150,26 @@ async def process_and_preview(file: UploadFile = File(...)):
         elif not formation_valid and formation_msg:
             errors.append({"field": "formation", "type": "error", "message": formation_msg})
         
-        # Correction du campus - uniquement si réel changement
-        corrected_campus, campus_valid, campus_msg = clean_and_correct_campus(raw_campus)
-        if campus_msg and campus_msg.startswith(('Campus corrigé', 'Format corrigé')):
+        # Correction du campus avec auto-attribution
+        corrected_campus, campus_valid, campus_msg = clean_and_correct_campus(raw_campus, corrected_formation)
+        if campus_msg and campus_msg.startswith(('Campus corrigé', 'Format corrigé', 'Campus auto-attribué')):
             errors.append({"field": "campus", "type": "warning", "message": campus_msg})
             stats['campus_fixed'] += 1
         elif not campus_valid and campus_msg:
             errors.append({"field": "campus", "type": "error", "message": campus_msg})
+        
+        # ✅ Calcul de la date de rentrée prévisionnelle (depuis rentree.py)
+        rentree_date = None
+        if raw_classe and str(raw_classe).strip():
+            rentree_date = calculate_rentree_date(str(raw_classe))
+            if rentree_date:
+                stats['rentree_fixed'] += 1
+                errors.append({
+                    "field": "dateRentreePrev", 
+                    "type": "warning", 
+                    "message": f"Date de rentrée calculée: {rentree_date} (basé sur classe: {raw_classe})"
+                })
+                print(f"📅 Date rentrée calculée: {raw_classe} → {rentree_date}")
         
         processed_rows.append({
             "id": index + 1,
@@ -161,7 +182,7 @@ async def process_and_preview(file: UploadFile = File(...)):
             "formation": corrected_formation,
             "campus": corrected_campus,
             "classeActuelle": str(raw_classe) if raw_classe else "",
-            "dateRentreePrev": "",
+            "dateRentreePrev": rentree_date if rentree_date else "",
             "errors": errors
         })
     
@@ -175,6 +196,7 @@ async def process_and_preview(file: UploadFile = File(...)):
     print(f"🏙️ Villes auto-remplies: {stats['city_fixed']}")
     print(f"🎓 Formations corrigées: {stats['formation_fixed']}")
     print(f"🏫 Campus corrigés: {stats['campus_fixed']}")
+    print(f"📅 Dates rentrée calculées: {stats['rentree_fixed']}")
     print("="*50)
     
     salon_name = file.filename.replace('.xlsx', '').replace('.xls', '').replace('.csv', '')
