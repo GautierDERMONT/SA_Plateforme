@@ -5,6 +5,8 @@ python -m venv venv && venv\Scripts\activate
 Installer les dépendances grâce à :
 pip install -r requirements.txt
 
+Créer le .env dans backend pour le lien de la bdd
+
 Pour installer les dépendances Node.js du frontend (et s’assurer d’avoir la bonne version de Node.js) :
 cd frontend && npm install
 
