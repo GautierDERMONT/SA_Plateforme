@@ -7,6 +7,8 @@ from app.models import user
 from app.models.administration import Formation, EnrollmentDate
 import pandas as pd
 from io import BytesIO
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
 
 # Import des modules internes
 from .transfo import (
@@ -48,9 +50,9 @@ async def process_and_preview(file: UploadFile = File(...)):
     
     # Lire le fichier avec les bons types
     if file.filename.endswith('.csv'):
-        df = pd.read_csv(file.file, dtype={'Téléphone': str, 'zipcode': str})
+        df = pd.read_csv(file.file, dtype={'Téléphone': str, 'Phone number':str, 'zipcode': str})
     else:
-        df = pd.read_excel(file.file, dtype={'Téléphone': str, 'zipcode': str})
+        df = pd.read_excel(file.file, dtype={'Téléphone': str, 'Phone number':str, 'zipcode': str})
     
     processed_rows = []
     stats = {
@@ -63,10 +65,10 @@ async def process_and_preview(file: UploadFile = File(...)):
         errors = []
         
         # Récupérer les valeurs (gérer les NaN)
-        raw_nom = row.get("Nom", "")
-        raw_prenom = row.get("Prénom", "")
+        raw_nom = row.get("Nom", "") or row.get("Last name", "")
+        raw_prenom = row.get("Prénom", "") or row.get("First name", "")
         raw_email = row.get("Email", "")
-        raw_phone = row.get("Téléphone", "")
+        raw_phone = row.get("Téléphone", "") or row.get("Phone number", "")
         raw_zip = row.get("zipcode", "")
         raw_city = row.get("city", "")
         raw_formation = row.get("Souhaits de formations :", "")
@@ -76,10 +78,12 @@ async def process_and_preview(file: UploadFile = File(...)):
         if not raw_classe or pd.isna(raw_classe):
             raw_classe = row.get("Actuellement, l’étudiant est en :", "") 
         if not raw_classe or pd.isna(raw_classe):
+            raw_classe = row.get("Actuellement, l’étudiant est en : ", "") 
+        if not raw_classe or pd.isna(raw_classe):
             raw_classe = row.get("Actuellement, l'étudiant est en", "")
         if not raw_classe or pd.isna(raw_classe):
             raw_classe = row.get("Actuellement, l’étudiant est en", "")
-        print(f"🔍 DEBUG - raw_classe = '{raw_classe}'")  
+        # print(f"🔍 DEBUG - raw_classe = '{raw_classe}'")  
 
         
         # Convertir en string et gérer les NaN
@@ -93,12 +97,6 @@ async def process_and_preview(file: UploadFile = File(...)):
         if pd.isna(raw_campus): raw_campus = ""
         if pd.isna(raw_classe): raw_classe = ""
         
-        # Nettoyer les téléphones (enlever .0 à la fin)
-        if isinstance(raw_phone, str) and raw_phone.endswith('.0'):
-            raw_phone = raw_phone[:-2]
-        elif isinstance(raw_phone, float):
-            raw_phone = str(int(raw_phone)) if raw_phone == int(raw_phone) else str(raw_phone)
-        
         # Nettoyer les emails
         if isinstance(raw_email, str):
             raw_email = raw_email.strip()
@@ -110,7 +108,7 @@ async def process_and_preview(file: UploadFile = File(...)):
         elif email_msg:
             errors.append({"field": "email", "type": "warning", "message": email_msg})
             stats['email_fixed'] += 1
-        
+
         # Correction du téléphone
         corrected_phone, phone_valid, phone_msg = clean_and_correct_phone(raw_phone)
         if not phone_valid:
@@ -158,7 +156,7 @@ async def process_and_preview(file: UploadFile = File(...)):
         elif not campus_valid and campus_msg:
             errors.append({"field": "campus", "type": "error", "message": campus_msg})
         
-        # ✅ Calcul de la date de rentrée prévisionnelle (depuis rentree.py)
+        # Calcul de la date de rentrée prévisionnelle (depuis rentree.py)
         rentree_date = None
         if raw_classe and str(raw_classe).strip():
             rentree_date = calculate_rentree_date(str(raw_classe))
@@ -209,51 +207,54 @@ async def process_and_preview(file: UploadFile = File(...)):
         "stats": stats
     })
 
+
 # Route pour l'export Excel original
-@app.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    data = pd.read_excel(file.file, usecols="A:E,G:I,V:X,Z", dtype={"Téléphone": str})
-    
-    from openpyxl import load_workbook
-    from openpyxl.styles import PatternFill
-    
+@app.post("/download")
+# async def upload_file(data: dict):
+async def upload_file(data: dict):
+    rows = data.get("rows", [])
+    # print("PREMIÈRE LIGNE :", rows[0])
+    # print("CLÉS :", rows[0].keys())
     red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
     start_row = 2
     
     wb = load_workbook("Matrice import CRM.xlsx")
     ws = wb["Template"]
     
-    data["profiles"] = data["profiles"].replace({
-        "Lycéen": "Elève, étudiant",
-        "Collégien": "Elève, étudiant",
-        "Etudiant": "Elève, étudiant"
-    })
-    
-    for i, row in data.iterrows():
-        ws.cell(row=start_row + i, column=3, value=row["profiles"])
-        ws.cell(row=start_row + i, column=5, value=row["Nom"])
-        ws.cell(row=start_row + i, column=6, value=row["Prénom"])
+    # data["profiles"] = data["profiles"].replace({
+    #     "Lycéen": "Elève, étudiant",
+    #     "Collégien": "Elève, étudiant",
+    #     "Etudiant": "Elève, étudiant"
+    # })
+
         
-        if not str(row["Email"]).endswith(VALID_DOMAINS):
-            ws.cell(row=start_row + i, column=7, value=row["Email"]).fill = red_fill
-        else:
-            ws.cell(row=start_row + i, column=7, value=row["Email"])
+    for i, row in enumerate(rows, start=start_row):
+        # ws.cell(row=2 + i, column=3, value=row["profiles"])
+        ws.cell(row=i, column=2, value=row.get("dateRentreePrev", ""))
+        ws.cell(row=i, column=5, value=row.get("nom", ""))
+        ws.cell(row=i, column=6, value=row.get("prenom", ""))
         
-        if not str(row["Téléphone"]).startswith("+") or len(str(row["Téléphone"])) != 12:
-            ws.cell(row=start_row + i, column=8, value=row["Téléphone"]).fill = red_fill
-        else:
-            ws.cell(row=start_row + i, column=8, value=row["Téléphone"])
+        # if not row.get("email", "").endswith(VALID_DOMAINS):
+        #     ws.cell(row=2 + i, column=7, value=row.get("email", "")).fill = red_fill
+        # else:
+        ws.cell(row=i, column=7, value=row.get("email", ""))
         
-        ws.cell(row=start_row + i, column=12, value=row["zipcode"])
-        ws.cell(row=start_row + i, column=15, value=row["Actuellement, l'étudiant est en :"])
-        ws.cell(row=start_row + i, column=22, value=row["Choix de campus :"])
-        ws.cell(row=start_row + i, column=23, value=row["Souhaits de formations :"])
-    
+        # if not row.get("telephone", "").startswith("+") or len(row.get("telephone", "")) != 12:
+        #     ws.cell(row=2 + i, column=8, value=row.get("telephone", "")).fill = red_fill
+        # else:
+        ws.cell(row=i, column=8, value=row.get("telephone", ""))
+        
+        ws.cell(row=i, column=12, value=row.get("codePostal", ""))
+        ws.cell(row=i, column=13, value=row.get("ville", ""))
+        ws.cell(row=i, column=15, value=row.get("classeActuelle", ""))
+        ws.cell(row=i, column=22, value=row.get("campus", ""))
+        ws.cell(row=i, column=23, value=row.get("formation", ""))
+
     output = BytesIO()
     wb.save(output)
     output.seek(0)
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=crm_ready.xlsx"}
+        headers={"Content-Disposition": f'attachment; filename="test"'}
     )

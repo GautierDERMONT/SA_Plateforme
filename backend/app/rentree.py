@@ -53,4 +53,4 @@ def calculate_rentree_date(classe_actuelle):
         if current_month >= 9:
             target_year += 1
     
-    return f"{target_year}-09-15"
+    return f"{target_year}-{target_year+1}"

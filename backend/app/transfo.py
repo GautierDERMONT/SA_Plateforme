@@ -1,6 +1,8 @@
 import pandas as pd
 import re
 import unicodedata
+from sqlalchemy.orm import Session
+from app.database import get_db,SessionLocal
 
 # Domaines valides
 VALID_DOMAINS = (
@@ -51,24 +53,24 @@ FORMATION_CORRECTION = {
 }
 
 CAMPUS_CORRECTION = {
-    "pontoise": "Pontoise (95)", "pontoise (95)": "Pontoise (95)",
-    "cergy": "Cergy (95)", "cergy (95)": "Cergy (95)",
-    "paris": "Paris (75)", "paris (75)": "Paris (75)",
+    "pontoise": "ESIEE-IT-Pontoise", "pontoise (95)": "ESIEE-IT-Pontoise",
+    "cergy": "ESIEE-IT-CODING FACTORY Cergy", "cergy (95)": "ESIEE-IT-CODING FACTORY Cergy",
+    "paris": "ESIEE-IT-Paris 15", "paris (75)": "ESIEE-IT-Paris 15",
 }
 
 # ✅ NOUVEAU Dictionnaire pour l'attribution auto du campus selon la formation
 FORMATION_TO_CAMPUS = {
-    "E3IN": "Pontoise (95)",
-    "E3COM": "Paris (75)",
-    "Bachelor Coding & IA": "Pontoise (95)",
-    "Bachelor DSNS (Cyber)": "Pontoise (95)",
-    "Bachelor Informatique": "Pontoise (95)",
-    "Cycle ingénieur": "Pontoise (95)",
-    "Cycle Ingenieur": "Pontoise (95)",
-    "Mastère Coding & IA": "Paris (75)",
-    "Mastere Coding & IA": "Paris (75)",
-    "Prépa ingénieur": "Pontoise (95)",
-    "Prepa ingenieur": "Pontoise (95)",
+    "E3IN": "ESIEE-IT-Pontoise",
+    "E3COM": "ESIEE-IT-Paris 15",
+    "Bachelor Coding & IA": "ESIEE-IT-Pontoise",
+    "Bachelor DSNS (Cyber)": "ESIEE-IT-Pontoise",
+    "Bachelor Informatique": "ESIEE-IT-Pontoise",
+    "Cycle ingénieur": "ESIEE-IT-Pontoise",
+    "Cycle Ingenieur": "ESIEE-IT-Pontoise",
+    "Mastère Coding & IA": "ESIEE-IT-Paris 15",
+    "Mastere Coding & IA": "ESIEE-IT-Paris 15",
+    "Prépa ingénieur": "ESIEE-IT-Pontoise",
+    "Prepa ingenieur": "ESIEE-IT-Pontoise",
 }
 
 def normalize_text(text):
@@ -131,7 +133,9 @@ def clean_and_correct_phone(phone):
     
     cleaned = re.sub(r'[\s\.\-/\(\)]', '', phone_str)
     cleaned = re.sub(r'[A-Za-z]', '', cleaned)
-    
+    if cleaned.startswith('+33') and len(cleaned) == 12:
+        return cleaned, True, None
+        
     if cleaned.startswith('+'):
         digits = re.sub(r'\D', '', cleaned[1:])
         if len(digits) >= 9 and len(digits) <= 12:
@@ -195,6 +199,7 @@ def clean_and_correct_formation(formation):
 # ✅ FONCTION MODIFIÉE : accepte maintenant un paramètre formation en option
 def clean_and_correct_campus(campus, formation=None):
     """Corrige le campus, avec auto-attribution basée sur la formation si campus vide"""
+    # db=SessionLocal()
     
     # Si campus vide ou None
     if pd.isna(campus) or not isinstance(campus, str) or str(campus).strip() == "":

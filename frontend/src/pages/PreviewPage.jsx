@@ -435,61 +435,56 @@ export default function PreviewPage({ onLogout }) {
     }
   };
 
-  const openExportModal = () => {
+  const openExportModal = async () => {
     const defaultName = `${salonName || 'export'}_${new Date().toISOString().split('T')[0]}`;
     setExportFileName(defaultName);
     setExportModalOpen(true);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!Array.isArray(editingData) || editingData.length === 0) {
       alert('Aucune donnée à exporter');
       return;
     }
     
-    const visibleColumns = columnOrder.filter(colId => columnVisibility[colId] && colId !== 'statut' && colId !== 'info');
-    
-    const headers = visibleColumns.map(colId => columnLabels[colId]);
-    const csvRows = [headers];
-    
-    editingData.forEach(row => {
-      const rowData = visibleColumns.map(colId => {
-        if (colId === 'id') return row.id || '';
-        if (colId === 'nom') return row.nom || '';
-        if (colId === 'prenom') return row.prenom || '';
-        if (colId === 'email') return row.email || '';
-        if (colId === 'telephone') return row.telephone || '';
-        if (colId === 'codePostal') return row.codePostal || '';
-        if (colId === 'ville') return row.ville || '';
-        if (colId === 'formation') return row.formation || '';
-        if (colId === 'campus') return row.campus || '';
-        if (colId === 'classeActuelle') return row.classeActuelle || '';
-        if (colId === 'dateRentreePrev') return row.dateRentreePrev || '';
-        return '';
-      });
-      csvRows.push(rowData);
-    });
-    
-    const csvContent = csvRows.map(row => row.join(',')).join('\n');
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
     let fileName = exportFileName.trim();
-    if (!fileName) {
-      fileName = `export_crm_${new Date().toISOString().split('T')[0]}`;
+
+    if (!fileName.endsWith(".xlsx")) {
+      fileName = `${fileName}.xlsx`;
     }
-    if (!fileName.endsWith('.csv')) {
-      fileName = `${fileName}.csv`;
+    console.log("editingData avant export :", editingData);
+    console.log("Nombre de lignes :", editingData?.length);
+
+    const response = await fetch("http://localhost:5000/download", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        rows: editingData,
+        filename: fileName
+      })
+    });
+
+    if (!response.ok) {
+      alert("Erreur lors de l'export");
+      return;
     }
-    link.setAttribute('href', url);
-    link.setAttribute('download', fileName);
-    link.style.visibility = 'hidden';
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
+
     document.body.removeChild(link);
-    
+    window.URL.revokeObjectURL(url);
+
     setExportModalOpen(false);
-    setExportFileName('');
+    setExportFileName("");
   };
 
   const closeExportModal = () => {
