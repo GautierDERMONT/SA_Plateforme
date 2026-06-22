@@ -50,7 +50,7 @@ const SortableHeader = ({ id, label, isVisible }) => {
   );
 };
 
-export default function PreviewPage({ onLogout }) {
+export default function PreviewPage({ onLogout, user: propUser }) {
   const navigate = useNavigate();
   const { processedData, setProcessedData, clearProcessedData, salonName, setSalonName } = useApp();
   
@@ -58,7 +58,7 @@ export default function PreviewPage({ onLogout }) {
     return Array.isArray(processedData) ? processedData : [];
   });
   
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(propUser || null);
   const [uploading, setUploading] = useState(false);
   
   // État pour la modale
@@ -69,6 +69,12 @@ export default function PreviewPage({ onLogout }) {
   // État pour la modale d'export
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportFileName, setExportFileName] = useState('');
+
+  // État pour la modale d'import direct
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [newSalonName, setNewSalonName] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFileName, setSelectedFileName] = useState('');
 
   // État pour l'ordre des colonnes et leur visibilité
   const [columnOrder, setColumnOrder] = useState([
@@ -123,12 +129,26 @@ export default function PreviewPage({ onLogout }) {
     })
   );
 
+  // Synchroniser avec les props
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
+    if (propUser) {
+      setUser(propUser);
     }
-  }, []);
+  }, [propUser]);
+
+  // Fallback: charger depuis localStorage si pas de props
+  useEffect(() => {
+    if (!propUser) {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          setUser(JSON.parse(userData));
+        } catch (e) {
+          setUser(null);
+        }
+      }
+    }
+  }, [propUser]);
 
   useEffect(() => {
     if (Array.isArray(processedData)) {
@@ -281,18 +301,94 @@ export default function PreviewPage({ onLogout }) {
     return newErrors;
   };
 
-  const handleNewFile = () => {
-    const confirm = window.confirm(
-      '⚠️ Attention !\n\n' +
-      'Si vous importez un nouveau fichier, les modifications que vous avez apportées ' +
-      'au fichier actuel seront perdues.\n\n' +
-      'Confirmez-vous vouloir continuer ?'
-    );
-    
-    if (confirm) {
-      clearProcessedData();
-      navigate('/');
+  // Fonction pour importer un nouveau fichier directement
+  const handleImportNewFile = async () => {
+    if (!newSalonName.trim()) {
+      alert('Veuillez entrer un nom de salon.');
+      return;
     }
+    if (!selectedFile) {
+      alert('Veuillez sélectionner un fichier.');
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const response = await fetch('http://localhost:5000/process-and-preview', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Erreur API');
+      }
+
+      const result = await response.json();
+      
+      const dataArray = Array.isArray(result.data) ? result.data : [];
+      
+      const enrichedData = dataArray.map(row => {
+        const newRow = { ...row };
+        
+        // Auto-remplissage ville
+        if ((!newRow.ville || newRow.ville === '') && newRow.codePostal) {
+          const city = getCityFromPostalCode(newRow.codePostal);
+          if (city) {
+            newRow.ville = city;
+            if (!newRow.errors) newRow.errors = [];
+            newRow.errors.push({
+              field: 'ville',
+              type: 'warning',
+              message: `Ville auto-remplie depuis le code postal: ${city}`
+            });
+          }
+        }
+        
+        // Auto-remplissage code postal
+        if ((!newRow.codePostal || newRow.codePostal === '') && newRow.ville) {
+          const postalCode = getPostalCodeFromCity(newRow.ville);
+          if (postalCode) {
+            newRow.codePostal = postalCode;
+            if (!newRow.errors) newRow.errors = [];
+            newRow.errors.push({
+              field: 'codePostal',
+              type: 'warning',
+              message: `Code postal auto-rempli depuis la ville: ${postalCode}`
+            });
+          }
+        }
+        
+        return newRow;
+      });
+      
+      setProcessedData(enrichedData);
+      setSalonName(newSalonName.trim());
+      setEditingData(enrichedData);
+      
+      // Fermer la modale
+      setImportModalOpen(false);
+      setNewSalonName('');
+      setSelectedFile(null);
+      setSelectedFileName('');
+      
+    } catch (err) {
+      console.error(err);
+      alert('Erreur lors du traitement du fichier');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleNewFile = () => {
+    // Ouvrir la modale d'import au lieu de naviguer
+    setNewSalonName('');
+    setSelectedFile(null);
+    setSelectedFileName('');
+    setImportModalOpen(true);
   };
 
   // Fonction principale d'édition avec auto-remplissage bidirectionnel
@@ -782,12 +878,103 @@ export default function PreviewPage({ onLogout }) {
                   className="export-input"
                   autoFocus
                 />
-                <p className="export-hint">L'extension .csv sera ajoutée automatiquement</p>
+                <p className="export-hint">L'extension .xlsx sera ajoutée automatiquement</p>
               </div>
             </div>
             <div className="modal-footer">
               <button className="modal-btn-cancel" onClick={closeExportModal}>Annuler</button>
               <button className="modal-btn" onClick={handleExport}>Exporter</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODALE D'IMPORT DIRECT */}
+      {importModalOpen && (
+        <div className="modal-overlay" onClick={() => !uploading && setImportModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>📁 Importer un nouveau fichier</h3>
+              <button 
+                className="modal-close" 
+                onClick={() => !uploading && setImportModalOpen(false)}
+                disabled={uploading}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="modal-row-info">
+                Les données actuelles seront remplacées par ce nouveau fichier.
+              </p>
+              
+              <div className="import-form">
+                <div className="import-group">
+                  <label>Nom du salon</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Salon de l'Étudiant Paris 2026"
+                    value={newSalonName}
+                    onChange={(e) => setNewSalonName(e.target.value)}
+                    disabled={uploading}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="import-group">
+                  <label>Fichier</label>
+                  <div className="file-input-wrapper">
+                    <input
+                      type="file"
+                      id="importFileInput"
+                      accept=".xlsx,.xls,.csv"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setSelectedFile(file);
+                          setSelectedFileName(file.name);
+                        }
+                      }}
+                      style={{ display: 'none' }}
+                      disabled={uploading}
+                    />
+                    <button 
+                      type="button" 
+                      className="browse-file-btn"
+                      onClick={() => document.getElementById('importFileInput').click()}
+                      disabled={uploading}
+                    >
+                      Parcourir...
+                    </button>
+                    <span className="file-name-display">
+                      {selectedFileName || 'Aucun fichier sélectionné'}
+                    </span>
+                  </div>
+                </div>
+
+                {uploading && (
+                  <div className="upload-progress">
+                    <span className="spinner"></span>
+                    Traitement en cours...
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="modal-btn-cancel" 
+                onClick={() => !uploading && setImportModalOpen(false)}
+                disabled={uploading}
+              >
+                Annuler
+              </button>
+              <button 
+                className="modal-btn import-btn" 
+                onClick={handleImportNewFile}
+                disabled={uploading || !newSalonName.trim() || !selectedFile}
+              >
+                {uploading ? 'Importation...' : '📤 Importer'}
+              </button>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+/* components/Navbar.css */
 .universal-navbar {
   background: white;
   border-bottom: 1px solid #e2e8f0;
@@ -33,9 +34,16 @@
   gap: 16px;
 }
 
-.user-email {
+/* 👇 Style pour le nom complet */
+.user-name {
   font-size: 14px;
-  color: #64748b;
+  font-weight: 500;
+  color: #1e293b;
+  background: #f1f5f9;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  white-space: nowrap;
 }
 
 .navbar-btn {
@@ -73,6 +81,19 @@
   background: #2563eb;
 }
 
+.navbar-btn.delete-account {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+  font-size: 16px;
+  padding: 8px 14px;
+}
+
+.navbar-btn.delete-account:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
 .navbar-btn.logout {
   background: #ef4444;
   color: white;
@@ -81,4 +102,154 @@
 
 .navbar-btn.logout:hover {
   background: #dc2626;
+}
+
+/* ===== MODAL DE CONFIRMATION ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.modal-header {
+  padding: 24px 24px 0 24px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #dc2626;
+  font-size: 20px;
+}
+
+.modal-body {
+  padding: 16px 24px 0 24px;
+}
+
+.modal-body p {
+  margin: 8px 0;
+  color: #1e293b;
+  line-height: 1.6;
+}
+
+.modal-warning {
+  background: #fef2f2;
+  color: #991b1b;
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 12px !important;
+  font-size: 14px;
+  border: 1px solid #fecaca;
+}
+
+.modal-footer {
+  padding: 20px 24px 24px 24px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modal-btn.cancel {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.modal-btn.cancel:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.modal-btn.danger {
+  background: #dc2626;
+  color: white;
+}
+
+.modal-btn.danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .navbar-container {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .navbar-left {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .navbar-actions {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .user-name {
+    font-size: 12px;
+    padding: 4px 12px;
+  }
+
+  .navbar-btn {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+
+  .modal-content {
+    width: 95%;
+    margin: 10px;
+  }
 }

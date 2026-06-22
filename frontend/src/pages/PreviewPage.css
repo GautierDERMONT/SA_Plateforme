@@ -678,3 +678,135 @@
 .data-table th:hover {
   background-color: #f1f5f9;
 }
+
+/* PreviewPage.css - Ajouter ces styles */
+
+/* ===== MODALE D'IMPORT ===== */
+.import-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.import-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.import-group label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #334155;
+}
+
+.import-group input[type="text"] {
+  padding: 10px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.import-group input[type="text"]:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.file-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 2px dashed #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.browse-file-btn {
+  padding: 8px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.browse-file-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.browse-file-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.file-name-display {
+  font-size: 14px;
+  color: #64748b;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #3b82f6;
+  font-weight: 500;
+  padding: 8px 0;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.modal-btn.import-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.modal-btn.import-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.modal-btn.import-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .file-input-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .browse-file-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  .file-name-display {
+    text-align: center;
+  }
+}

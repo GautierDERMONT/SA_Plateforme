@@ -1,3 +1,4 @@
+// services/api.js
 import axios from 'axios';
 
 const API_URL = 'http://localhost:5000/api';
@@ -25,7 +26,9 @@ api.interceptors.request.use(
 
 // Auth
 export const login = (email, password) => api.post('/login', { email, password });
+export const register = (email, password, full_name) => api.post('/register', { email, password, full_name });
 export const getMe = () => api.get('/me');
+export const deleteMyAccount = () => api.delete('/me'); 
 
 // Data
 export const getData = () => api.get('/data');
@@ -33,5 +36,10 @@ export const getItem = (id) => api.get(`/data/${id}`);
 export const createData = (data) => api.post('/data', data);
 export const updateData = (id, data) => api.put(`/data/${id}`, data);
 export const deleteData = (id) => api.delete(`/data/${id}`);
+
+// Admin - Users
+export const getUsers = () => api.get('/admin/users');
+export const createUser = (userData) => api.post('/admin/users', userData);
+export const deleteUser = (userId) => api.delete(`/admin/users/${userId}`);
 
 export default api;

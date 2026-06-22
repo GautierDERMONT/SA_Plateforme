@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import Navbar from './Navbar';
 import './Dashboard.css';
 
-function Dashboard({ onLogout }) {
+function Dashboard({ onLogout, user: propUser }) {
   const navigate = useNavigate();
   const { setProcessedData, setSalonName } = useApp();
   const [items, setItems] = useState([]);
@@ -15,15 +15,32 @@ function Dashboard({ onLogout }) {
   const [selectedFormat, setSelectedFormat] = useState('Détection automatique');
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState('');
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(propUser || null);
   const [processing, setProcessing] = useState(false);
+
+  // Synchroniser avec les props
+  useEffect(() => {
+    if (propUser) {
+      setUser(propUser);
+    }
+  }, [propUser]);
+
+  // Fallback: charger depuis localStorage si pas de props
+  useEffect(() => {
+    if (!propUser) {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          setUser(JSON.parse(userData));
+        } catch (e) {
+          setUser(null);
+        }
+      }
+    }
+  }, [propUser]);
 
   useEffect(() => {
     fetchData();
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      setUser(JSON.parse(userData));
-    }
   }, []);
 
   const fetchData = async () => {

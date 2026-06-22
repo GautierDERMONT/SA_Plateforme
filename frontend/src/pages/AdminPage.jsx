@@ -6,23 +6,53 @@ import './AdminPage.css';
 
 const API_URL = 'http://localhost:5000/api';
 
-export default function AdminPage({ onLogout }) {
+export default function AdminPage({ onLogout, user: propUser }) {
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(propUser || null);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [formations, setFormations] = useState([]);
   const [enrollmentDates, setEnrollmentDates] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // États pour les formations
   const [newFormationName, setNewFormationName] = useState('');
   const [newFormationCampus, setNewFormationCampus] = useState('');
   const [editingFormationId, setEditingFormationId] = useState(null);
   const [editFormationName, setEditFormationName] = useState('');
   const [editFormationCampus, setEditFormationCampus] = useState('');
   
+  // États pour les dates de rentrée
   const [newEnrollmentYear, setNewEnrollmentYear] = useState('');
   const [newEnrollmentDate, setNewEnrollmentDate] = useState('');
+  const [editingDateId, setEditingDateId] = useState(null);
+  const [editDateYear, setEditDateYear] = useState('');
+  const [editDateValue, setEditDateValue] = useState('');
+  
   const [activeTab, setActiveTab] = useState('formations');
+
+  // Synchroniser avec les props
+  useEffect(() => {
+    console.log('🔄 AdminPage - propUser reçu:', propUser);
+    if (propUser) {
+      setUser(propUser);
+    }
+  }, [propUser]);
+
+  // Fallback: charger depuis localStorage si pas de props
+  useEffect(() => {
+    if (!propUser) {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        try {
+          const parsed = JSON.parse(userData);
+          setUser(parsed);
+        } catch (e) {
+          console.error('❌ Erreur parsing user:', e);
+          setUser(null);
+        }
+      }
+    }
+  }, [propUser]);
 
   // Fonction pour récupérer le token
   const getAuthHeaders = () => ({
@@ -56,18 +86,16 @@ export default function AdminPage({ onLogout }) {
   };
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    
-    if (!userData) {
+    if (!user) {
       navigate('/login');
       return;
     }
     
-    const parsedUser = JSON.parse(userData);
-    setUser(parsedUser);
+    // Vérification admin par nom
+    const isAdmin = user.full_name === 'Administrateur';
     
-    // Vérification admin
-    if (parsedUser.full_name !== 'Administrateur') {
+    if (!isAdmin) {
+      alert('Accès refusé. Cette page est réservée aux administrateurs.');
       navigate('/');
       return;
     }
@@ -82,7 +110,7 @@ export default function AdminPage({ onLogout }) {
     };
     
     loadData();
-  }, [navigate]);
+  }, [user, navigate]);
 
   if (!isAuthorized || !user) {
     return null;
@@ -93,12 +121,14 @@ export default function AdminPage({ onLogout }) {
       <div className="admin-page">
         <Navbar user={user} onLogout={onLogout} />
         <div className="admin-container">
-          <div className="loading-spinner">Chargement des données depuis Supabase...</div>
+          <div className="loading-spinner">Chargement des données...</div>
         </div>
       </div>
     );
   }
 
+  // ============ GESTION DES FORMATIONS ============
+  
   // Ajouter une formation
   const handleAddFormation = async () => {
     if (newFormationName.trim()) {
@@ -114,7 +144,7 @@ export default function AdminPage({ onLogout }) {
             ...getAuthHeaders()
           }
         );
-        await fetchFormations(); // Recharger la liste
+        await fetchFormations();
         setNewFormationName('');
         setNewFormationCampus('');
       } catch (err) {
@@ -159,6 +189,8 @@ export default function AdminPage({ onLogout }) {
     }
   };
 
+  // ============ GESTION DES DATES DE RENTRÉE ============
+  
   // Ajouter une date de rentrée
   const handleAddEnrollmentDate = async () => {
     if (newEnrollmentYear.trim() && newEnrollmentDate.trim()) {
@@ -181,6 +213,28 @@ export default function AdminPage({ onLogout }) {
         console.error('Erreur ajout date:', err);
         alert('Erreur lors de l\'ajout');
       }
+    }
+  };
+
+  // Modifier une date de rentrée
+  const handleSaveEnrollmentDate = async (id) => {
+    try {
+      await axios.put(
+        `${API_URL}/admin/enrollment-dates/${id}`,
+        null,
+        { 
+          params: { 
+            year: editDateYear.trim(), 
+            date: editDateValue.trim() 
+          },
+          ...getAuthHeaders()
+        }
+      );
+      await fetchEnrollmentDates();
+      setEditingDateId(null);
+    } catch (err) {
+      console.error('Erreur modification date:', err);
+      alert('Erreur lors de la modification');
     }
   };
 
@@ -227,6 +281,7 @@ export default function AdminPage({ onLogout }) {
           </button>
         </div>
 
+        {/* ===== ONGLET FORMATIONS ===== */}
         {activeTab === 'formations' && (
           <div className="tab-content">
             <div className="add-section">
@@ -314,6 +369,7 @@ export default function AdminPage({ onLogout }) {
           </div>
         )}
 
+        {/* ===== ONGLET DATES DE RENTRÉE ===== */}
         {activeTab === 'dates' && (
           <div className="tab-content">
             <div className="add-section">
@@ -349,10 +405,53 @@ export default function AdminPage({ onLogout }) {
                 <tbody>
                   {enrollmentDates.map((date) => (
                     <tr key={date.id}>
-                      <td>{date.year}</td>
-                      <td>{date.date}</td>
+                      <td>
+                        {editingDateId === date.id ? (
+                          <input
+                            value={editDateYear}
+                            onChange={(e) => setEditDateYear(e.target.value)}
+                            placeholder="ex: 2029-2030"
+                          />
+                        ) : (
+                          date.year
+                        )}
+                      </td>
+                      <td>
+                        {editingDateId === date.id ? (
+                          <input
+                            type="date"
+                            value={editDateValue}
+                            onChange={(e) => setEditDateValue(e.target.value)}
+                          />
+                        ) : (
+                          new Date(date.date).toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })
+                        )}
+                      </td>
                       <td className="actions-cell">
-                        <button className="delete-btn" onClick={() => handleDeleteEnrollmentDate(date.id)}>🗑️</button>
+                        {editingDateId === date.id ? (
+                          <div className="action-buttons">
+                            <button className="save-btn" onClick={() => handleSaveEnrollmentDate(date.id)}>✓</button>
+                            <button className="cancel-btn" onClick={() => setEditingDateId(null)}>✗</button>
+                          </div>
+                        ) : (
+                          <div className="action-buttons">
+                            <button 
+                              className="edit-btn" 
+                              onClick={() => {
+                                setEditingDateId(date.id);
+                                setEditDateYear(date.year);
+                                setEditDateValue(date.date);
+                              }}
+                            >
+                              ✏️
+                            </button>
+                            <button className="delete-btn" onClick={() => handleDeleteEnrollmentDate(date.id)}>🗑️</button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
