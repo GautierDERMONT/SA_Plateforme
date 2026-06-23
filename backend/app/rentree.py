@@ -6,7 +6,7 @@ def calculate_rentree_date(classe_actuelle):
     if not classe_actuelle or classe_actuelle.strip() == "":
         return None
     
-    classe_normalized = classe_actuelle.lower().strip()
+    classe_normalized = classe_actuelle.lower().replace(" ", "")
     
     # Mapping classe → années avant l'entrée
     class_offset = {
@@ -18,14 +18,14 @@ def calculate_rentree_date(classe_actuelle):
         'première': 1, '1ère': 1, '1ere': 1,
         'terminale': 0, 'tale': 0, 'term': 0,
         # Post-bac
-        'bac+1': -1, 'licence 1': -1, 'l1': -1,
-        'bac+2': -2, 'licence 2': -2, 'l2': -2,
-        'bac+3': -3, 'licence 3': -3, 'l3': -3,
-        'bac+4': -4, 'master 1': -4, 'm1': -4,
-        'bac+5': -5, 'master 2': -5, 'm2': -5,
+        'bac+1': 0, 'licence 1': 0, 'l1': 0,
+        'bac+2': 0, 'licence 2': 0, 'l2': 0,
+        'bac+3': 0, 'licence 3': 0, 'l3': 0,
+        'bac+4': 0, 'master 1': 0, 'm1': 0,
+        'bac+5': 0, 'master 2': 0, 'm2': 0,
         # Générique
-        'lycéen': 1, 'lyceen': 1,
-        'collégien': 3, 'collegien': 3,
+        'lycéen': 1, 'lyceen': 1, 'lycée': 1,  'lycee': 1,
+        'collégien': 3, 'collegien': 3,'collège': 3,'college': 3,
         'étudiant': 0, 'etudiant': 0,
     }
     

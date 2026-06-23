@@ -6,10 +6,12 @@ from app.database import get_db,SessionLocal
 
 # Domaines valides
 VALID_DOMAINS = (
-    "@gmail.com", "@yahoo.com", "@outlook.com", "@hotmail.com",
-    "@live.com", "@icloud.com", "@msn.com", "@laposte.net",
-    "@orange.fr", "@sfr.fr", "@free.fr", "@wanadoo.fr",
-    "@aol.com", "@protonmail.com", "@gmx.com", "@gmx.fr", "@mail.com"
+    "@gmail.com","@outlook.com", "@outlook.fr","@hotmail.com", "@hotmail.fr",
+    "@live.com", "@live.fr","@msn.com","@yahoo.com", "@yahoo.fr","@ymail.com",
+    "@icloud.com", "@me.com", "@mac.com", "@orange.fr", "@wanadoo.fr",
+    "@sfr.fr", "@neuf.fr","@free.fr","@bbox.fr","@laposte.net",
+    "@protonmail.com", "@proton.me","@aol.com", "@aol.fr","@gmx.com", "@gmx.fr",
+    "@mail.com","@zoho.com","@yandex.com",
 )
 
 # Dictionnaire des corrections de domaines
@@ -34,15 +36,6 @@ DOMAIN_CORRECTIONS = {
     "gm@il.com": "gmail.com", "hotmaiil.com": "hotmail.com", "yhaoo.com": "yahoo.com",
 }
 
-CITIES_CORRECTION = {
-    "paris": "Paris", "lyon": "Lyon", "marseille": "Marseille", "toulouse": "Toulouse",
-    "nice": "Nice", "nantes": "Nantes", "strasbourg": "Strasbourg", "montpellier": "Montpellier",
-    "bordeaux": "Bordeaux", "lille": "Lille", "rennes": "Rennes", "reims": "Reims",
-    "st etienne": "Saint-Étienne", "saint etienne": "Saint-Étienne", "toulon": "Toulon",
-    "grenoble": "Grenoble", "angers": "Angers", "dijon": "Dijon", "brest": "Brest",
-    "le mans": "Le Mans", "clermont ferrand": "Clermont-Ferrand", "clermont-ferrand": "Clermont-Ferrand",
-}
-
 FORMATION_CORRECTION = {
     "inge": "Cycle ingénieur", "ingenieur": "Cycle ingénieur", "cycle ingé": "Cycle ingénieur",
     "prepa inge": "Prépa ingénieur", "prepa ingenier": "Prépa ingénieur",
@@ -52,13 +45,29 @@ FORMATION_CORRECTION = {
     "m2i coding": "Mastère Coding & IA", "cycle ingenieur": "Cycle ingénieur",
 }
 
+PROFILE_CORRECTION = {
+    "Lycéen": "Elève, étudiant", "Lyceen": "Elève, étudiant",
+    "Lycée": "Elève, étudiant", "Lycee": "Elève, étudiant",
+    "Collégien": "Elève, étudiant", "Collegien": "Elève, étudiant",
+    "Collège": "Elève, étudiant", "College": "Elève, étudiant",
+    "Etudiant": "Elève, étudiant", "etudiant": "Elève, étudiant",
+    "Étudiant": "Elève, étudiant", "étudiant": "Elève, étudiant",
+    "Parent": "Parent", "parent": "Parent",
+    "Alumni": "Alumni", "alumni": "Alumni",
+    "Professionnel":"Professionnel", "professionnel":"Professionnel",
+    "Enseignement / Orientation": "Enseignement / Orientation", "enseignement / orientation": "Enseignement / Orientation",
+    "Enseignement": "Enseignement / Orientation", "enseignement": "Enseignement / Orientation",
+    "Orientation": "Enseignement / Orientation", "orientation": "Enseignement / Orientation",
+    "Autre": "Autre", "autre": "Autre"
+
+}
+
 CAMPUS_CORRECTION = {
     "pontoise": "ESIEE-IT-Pontoise", "pontoise (95)": "ESIEE-IT-Pontoise",
     "cergy": "ESIEE-IT-CODING FACTORY Cergy", "cergy (95)": "ESIEE-IT-CODING FACTORY Cergy",
     "paris": "ESIEE-IT-Paris 15", "paris (75)": "ESIEE-IT-Paris 15",
 }
 
-# ✅ NOUVEAU Dictionnaire pour l'attribution auto du campus selon la formation
 FORMATION_TO_CAMPUS = {
     "E3IN": "ESIEE-IT-Pontoise",
     "E3COM": "ESIEE-IT-Paris 15",
@@ -160,26 +169,6 @@ def clean_and_correct_phone(phone):
     
     return phone_str, False, "Format de téléphone invalide"
 
-def clean_and_correct_city(city):
-    if pd.isna(city) or not isinstance(city, str) or str(city).strip() == "":
-        return "", True, None
-    
-    city_str = str(city).strip()
-    original = city_str
-    normalized = normalize_text(city_str)
-    
-    for wrong, correct in CITIES_CORRECTION.items():
-        if normalized == wrong or normalized in wrong:
-            if correct != original:
-                return correct, True, f"Ville corrigée: {original} → {correct}"
-            return correct, True, None
-    
-    corrected = city_str.title()
-    if corrected != original:
-        return corrected, True, f"Format corrigé: {original} → {corrected}"
-    
-    return city_str, True, None
-
 def clean_and_correct_formation(formation):
     if pd.isna(formation) or not isinstance(formation, str) or str(formation).strip() == "":
         return "", True, None
@@ -227,25 +216,14 @@ def clean_and_correct_campus(campus, formation=None):
     
     return campus_str, True, None
 
-def clean_and_correct_zipcode(zipcode):
-    if pd.isna(zipcode):
-        return "", True, None
+def clean_and_correct_profil(profil):
+    if pd.isna(profil) or str(profil).strip() == "":
+        return "", False,  f"Profil non renseigné."
     
-    zip_str = str(zipcode).strip()
-    original = zip_str
-    digits = re.sub(r'\D', '', zip_str)
+    profil = str(profil).strip()
     
-    if len(digits) == 5 and digits.isdigit():
-        return digits, True, None
-    elif len(digits) > 5:
-        corrected = digits[:5]
-        if corrected != original:
-            return corrected, True, f"Code postal tronqué: {original} → {corrected}"
-        return corrected, True, None
-    elif 0 < len(digits) < 5:
-        corrected = digits.zfill(5)
-        if corrected != original:
-            return corrected, True, f"Code postal corrigé: {original} → {corrected}"
-        return corrected, True, None
+    if profil in PROFILE_CORRECTION:
+        profil_attendu=PROFILE_CORRECTION.get(profil)
+        return profil_attendu, True, None
     
-    return "", False, "Code postal invalide"
+    return profil, False, f"Profil non reconnu."

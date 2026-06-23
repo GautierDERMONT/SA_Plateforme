@@ -78,13 +78,14 @@ export default function PreviewPage({ onLogout, user: propUser }) {
 
   // État pour l'ordre des colonnes et leur visibilité
   const [columnOrder, setColumnOrder] = useState([
-    'id', 'nom', 'prenom', 'email', 'telephone', 
+    'id','profil', 'nom', 'prenom', 'email', 'telephone', 
     'codePostal', 'ville', 'formation', 'campus', 
     'classeActuelle', 'dateRentreePrev', 'statut', 'info'
   ]);
   
   const [columnVisibility, setColumnVisibility] = useState({
     id: true,
+    profil: true,
     nom: true,
     prenom: true,
     email: true,
@@ -103,7 +104,8 @@ export default function PreviewPage({ onLogout, user: propUser }) {
 
   // Configuration des colonnes
   const columnLabels = {
-    id: '#',
+    id: '#', 
+    profil:'Profil',
     nom: 'Nom',
     prenom: 'Prénom',
     email: 'Email',
@@ -200,13 +202,14 @@ export default function PreviewPage({ onLogout, user: propUser }) {
 
   const resetColumnOrder = () => {
     const defaultOrder = [
-      'id', 'nom', 'prenom', 'email', 'telephone', 
+      'id', 'profil', 'nom', 'prenom', 'email', 'telephone', 
       'codePostal', 'ville', 'formation', 'campus', 
       'classeActuelle', 'dateRentreePrev', 'statut', 'info'
     ];
     setColumnOrder(defaultOrder);
     setColumnVisibility({
       id: true,
+      profil: true,
       nom: true,
       prenom: true,
       email: true,
@@ -241,6 +244,12 @@ export default function PreviewPage({ onLogout, user: propUser }) {
     const newErrors = [];
     
     switch(field) {
+      case 'profil':
+        if (!value || value.trim() === '') {
+          newErrors.push({ field: 'profil', type: 'error', message: 'Profil manquant' });
+        }
+        break;
+
       case 'nom':
         if (!value || value.trim() === '') {
           newErrors.push({ field: 'nom', type: 'error', message: 'Nom manquant' });
@@ -781,6 +790,7 @@ export default function PreviewPage({ onLogout, user: propUser }) {
                           
                           const fieldMap = {
                             id: 'id',
+                            profil:'profil',
                             nom: 'nom',
                             prenom: 'prenom',
                             email: 'email',

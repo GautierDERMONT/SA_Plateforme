@@ -14,13 +14,14 @@ from openpyxl.styles import PatternFill
 from .transfo import (
     clean_and_correct_email,
     clean_and_correct_phone,
-    clean_and_correct_city,
     clean_and_correct_formation,
     clean_and_correct_campus,
-    clean_and_correct_zipcode,
+    clean_and_correct_profil,
     VALID_DOMAINS
 )
-from .postal_codes import get_city_from_postal_code
+# from .postal_codes import get_city_from_postal_code
+from .postal_codes import get_city_and_postal_code
+
 from .rentree import calculate_rentree_date  # ← NOUVEAU
 
 # Créer les tables dans la base de données
@@ -64,7 +65,8 @@ async def process_and_preview(file: UploadFile = File(...)):
     for index, row in df.iterrows():
         errors = []
         
-        # Récupérer les valeurs (gérer les NaN)
+        # Récupérer les valeurs (gérer les NaN)        
+        raw_profil = row.get("Profiles", "") or row.get("profiles", "")
         raw_nom = row.get("Nom", "") or row.get("Last name", "")
         raw_prenom = row.get("Prénom", "") or row.get("First name", "")
         raw_email = row.get("Email", "")
@@ -87,6 +89,7 @@ async def process_and_preview(file: UploadFile = File(...)):
 
         
         # Convertir en string et gérer les NaN
+        if pd.isna(raw_profil): raw_profil = ""
         if pd.isna(raw_nom): raw_nom = ""
         if pd.isna(raw_prenom): raw_prenom = ""
         if pd.isna(raw_email): raw_email = ""
@@ -96,6 +99,17 @@ async def process_and_preview(file: UploadFile = File(...)):
         if pd.isna(raw_formation): raw_formation = ""
         if pd.isna(raw_campus): raw_campus = ""
         if pd.isna(raw_classe): raw_classe = ""
+        
+        # Correction du profil
+        corrected_profil, profil_valid, profil_msg = clean_and_correct_profil(raw_profil)
+        if not profil_valid:
+            errors.append({"field": "profil", "type": "error", "message": profil_msg})
+        
+        if not raw_nom:
+            errors.append({"field": "nom", "type": "error", "message": "Nom manquant"})
+            
+        if not raw_prenom:
+            errors.append({"field": "prénom", "type": "error", "message": "Préom manquant"})
         
         # Nettoyer les emails
         if isinstance(raw_email, str):
@@ -117,28 +131,25 @@ async def process_and_preview(file: UploadFile = File(...)):
             errors.append({"field": "telephone", "type": "warning", "message": phone_msg})
             stats['phone_fixed'] += 1
         
-        # Correction du code postal
-        corrected_zip, zip_valid, zip_msg = clean_and_correct_zipcode(raw_zip)
-        if not zip_valid and zip_msg:
-            errors.append({"field": "codePostal", "type": "error", "message": zip_msg})
-        elif zip_msg:
-            errors.append({"field": "codePostal", "type": "warning", "message": zip_msg})
+        # Correction code postal+ville
+        error, corrected_zip, corrected_city, msg = get_city_and_postal_code(raw_zip,raw_city)
+        if error==1:
+            errors.append({"field": "codePostal", "type": "error", "message": msg})
+            errors.append({"field": "ville", "type": "error", "message": msg})
+        elif error==2:
+            errors.append({"field": "ville", "type": "warning", "message": msg})
+            stats['city_fixed'] += 1
+        elif error==3:
+            errors.append({"field": "codePostal", "type": "error", "message": msg})
+            errors.append({"field": "ville", "type": "error", "message": "Impossible de trouver une ville correspondante"})
+        elif error==4:
+            errors.append({"field": "codePostal", "type": "warning", "message": msg})
             stats['zip_fixed'] += 1
-        
-        # Auto-remplissage ville depuis code postal
-        corrected_city = raw_city
-        if (not raw_city or str(raw_city).strip() == "") and corrected_zip and len(corrected_zip) == 5:
-            auto_city = get_city_from_postal_code(corrected_zip)
-            if auto_city:
-                corrected_city = auto_city
-                errors.append({"field": "ville", "type": "warning", "message": f"Ville auto-remplie depuis le code postal: {auto_city}"})
-                stats['city_fixed'] += 1
-                print(f"✅ Auto-remplissage: CP {corrected_zip} → {auto_city}")
-        else:
-            corrected_city, city_valid, city_msg = clean_and_correct_city(raw_city)
-            if city_msg:
-                errors.append({"field": "ville", "type": "warning", "message": city_msg})
-                stats['city_fixed'] += 1
+        elif error==5:
+            errors.append({"field": "ville", "type": "error", "message": msg})
+        elif error==6:
+            errors.append({"field": "codePostal", "type": "error", "message": "Aucun code postale renseigné."})
+            errors.append({"field": "ville", "type": "error", "message": "Aucune ville renseigné."})
         
         # Correction de la formation
         corrected_formation, formation_valid, formation_msg = clean_and_correct_formation(raw_formation)
@@ -171,6 +182,7 @@ async def process_and_preview(file: UploadFile = File(...)):
         
         processed_rows.append({
             "id": index + 1,
+            "profil": corrected_profil,
             "nom": str(raw_nom) if raw_nom else "",
             "prenom": str(raw_prenom) if raw_prenom else "",
             "email": corrected_email,
@@ -213,23 +225,14 @@ async def process_and_preview(file: UploadFile = File(...)):
 # async def upload_file(data: dict):
 async def upload_file(data: dict):
     rows = data.get("rows", [])
-    # print("PREMIÈRE LIGNE :", rows[0])
-    # print("CLÉS :", rows[0].keys())
     red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
     start_row = 2
     
     wb = load_workbook("Matrice import CRM.xlsx")
     ws = wb["Template"]
-    
-    # data["profiles"] = data["profiles"].replace({
-    #     "Lycéen": "Elève, étudiant",
-    #     "Collégien": "Elève, étudiant",
-    #     "Etudiant": "Elève, étudiant"
-    # })
-
         
     for i, row in enumerate(rows, start=start_row):
-        # ws.cell(row=2 + i, column=3, value=row["profiles"])
+        ws.cell(row=2 + i, column=3, value=row.get("profil",""))
         ws.cell(row=i, column=2, value=row.get("dateRentreePrev", ""))
         ws.cell(row=i, column=5, value=row.get("nom", ""))
         ws.cell(row=i, column=6, value=row.get("prenom", ""))
