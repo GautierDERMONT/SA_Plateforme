@@ -192,8 +192,9 @@ def correct_formation_and_campus(formation, campus, formations_cache):
     campus=str(campus).strip()
     if campus.lower() in CAMPUS_CORRECTION:
         campus = CAMPUS_CORRECTION.get(campus.lower())
-
-    if (pd.isna(formation) or not isinstance(formation, str) or str(formation).strip() == ""or pd.isna(campus) or not isinstance(campus, str) or str(campus).strip() == ""):
+    print(type(formation))
+    print(type(campus))
+    if (pd.isna(formation) or not isinstance(formation, str) and str(formation).strip() == "") or (pd.isna(campus) or not isinstance(campus, str) or str(campus).strip() == ""):
         return 4, formation, campus, "Formation et campus invalides."
 
     nom_formation, error = clean_formation(str(formation).strip())
@@ -201,7 +202,6 @@ def correct_formation_and_campus(formation, campus, formations_cache):
     if error:
         return 3, nom_formation, campus, "Nom de formation introuvable."
 
-    key = nom_formation.strip().lower()
     formations_found = get_formation(formations_cache,nom_formation)
     
     if not formations_found:
@@ -234,3 +234,16 @@ def has_error(errors, field_name):
         error.get("type") == "error" and error.get("field") == field_name
         for error in errors
     )
+    
+def get_first_value(row, columns):
+    for col in columns:
+        value = row.get(col, "")
+
+        if isinstance(value, pd.Series):
+            value = value.dropna()
+            value = value.iloc[0] if not value.empty else ""
+
+        if not pd.isna(value) and str(value).strip() != "":
+            return value
+
+    return ""

@@ -3,8 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from app.api.routes import router
 from app.database import engine, Base, SessionLocal
-from app.models import user
-from app.models.administration import Formation, EnrollmentDate
 import pandas as pd
 from io import BytesIO
 from openpyxl import load_workbook
@@ -18,6 +16,7 @@ from .transfo import (
     correct_formation_and_campus,
     clean_and_correct_profil,
     has_error,
+    get_first_value,
     VALID_DOMAINS
 )
 # from .postal_codes import get_city_from_postal_code
@@ -55,7 +54,7 @@ async def process_and_preview(file: UploadFile = File(...)):
         df = pd.read_csv(file.file, dtype={'Téléphone': str, 'Phone number':str, 'zipcode': str})
     else:
         df = pd.read_excel(file.file, dtype={'Téléphone': str, 'Phone number':str, 'zipcode': str})
-    
+    df.columns = df.columns.str.strip()
     processed_rows = []
     stats = {
         'email_fixed': 0, 'phone_fixed': 0, 'city_fixed': 0, 
@@ -68,28 +67,17 @@ async def process_and_preview(file: UploadFile = File(...)):
         errors = []
         
         # Récupérer les valeurs (gérer les NaN)        
-        raw_profil = row.get("Profiles", "") or row.get("profiles", "")
-        raw_nom = row.get("Nom", "") or row.get("Last name", "")
-        raw_prenom = row.get("Prénom", "") or row.get("First name", "")
+        raw_profil = get_first_value(row, ["Profiles", "profiles"])
+        raw_nom = get_first_value(row, ["Nom", "nom", "Last name", "last name"])
+        raw_prenom = get_first_value(row, ["Prénom", "prénom", "Prenom", "prenom", "First name", "first name"])
         raw_email = row.get("Email", "")
-        raw_phone = row.get("Téléphone", "") or row.get("Phone number", "")
-        raw_zip = row.get("zipcode", "")
-        raw_city = row.get("city", "")
-        raw_formation = row.get("Souhaits de formations :", "") or row.get("Souhaits de formations", "")
-        raw_campus = row.get("Choix de campus :", "") or row.get("Choix de campus :  ", "")
-        # Essayer les deux apostrophes
-        raw_classe = row.get("Actuellement, l'étudiant est en :", "")
-        if not raw_classe or pd.isna(raw_classe):
-            raw_classe = row.get("Actuellement, l’étudiant est en :", "") 
-        if not raw_classe or pd.isna(raw_classe):
-            raw_classe = row.get("Actuellement, l’étudiant est en : ", "") 
-        if not raw_classe or pd.isna(raw_classe):
-            raw_classe = row.get("Actuellement, l'étudiant est en", "")
-        if not raw_classe or pd.isna(raw_classe):
-            raw_classe = row.get("Actuellement, l’étudiant est en", "")
-        # print(f"🔍 DEBUG - raw_classe = '{raw_classe}'")  
-
-        
+        raw_phone = get_first_value(row, ["Téléphone", "téléphone", "Telephone", "telephone", "Phone number", "phone number"])
+        raw_zip = get_first_value(row, ["zipcode", "Zipcode", "Code postal", "code postal"])
+        raw_city = get_first_value(row, ["city", "City", "Ville", "ville"])
+        raw_formation = get_first_value(row, ["Souhaits de formations :", "Souhaits de formations", "souhaits de formations :", "souhaits de formations"])
+        raw_campus = get_first_value(row, ["Choix de campus :","Choix de campus",])
+        raw_classe = get_first_value(row, ["Actuellement, l'étudiant est en :","Actuellement, l’étudiant est en :","Actuellement, l'étudiant est en","Actuellement, l’étudiant est en",])
+ 
         # Convertir en string et gérer les NaN
         if pd.isna(raw_profil): raw_profil = ""
         if pd.isna(raw_nom): raw_nom = ""
@@ -142,8 +130,8 @@ async def process_and_preview(file: UploadFile = File(...)):
             errors.append({"field": "ville", "type": "warning", "message": msg})
             stats['city_fixed'] += 1
         elif error==3:
-            errors.append({"field": "codePostal", "type": "error", "message": msg})
-            errors.append({"field": "ville", "type": "error", "message": "Impossible de trouver une ville correspondante"})
+            errors.append({"field": "codePostal", "type": "warning", "message": msg})
+            errors.append({"field": "ville", "type": "error", "message": "Impossible de trouver une ville correspondante."})
         elif error==4:
             errors.append({"field": "codePostal", "type": "warning", "message": msg})
             stats['zip_fixed'] += 1
@@ -179,7 +167,6 @@ async def process_and_preview(file: UploadFile = File(...)):
                     "type": "warning", 
                     "message": f"Date de rentrée calculée: {rentree_date} (basé sur classe: {raw_classe})"
                 })
-                print(f"📅 Date rentrée calculée: {raw_classe} → {rentree_date}")
         
         processed_rows.append({
             "id": index + 1,
@@ -275,8 +262,13 @@ async def upload_file(data: dict):
             ws.cell(row=i, column=13, value=row.get("ville", ""))
             
         ws.cell(row=i, column=15, value=row.get("classeActuelle", ""))
+        
         ws.cell(row=i, column=22, value=row.get("campus", ""))
-        ws.cell(row=i, column=23, value=row.get("formation", ""))
+        
+        if has_error(errors, "formation") and row.get("formation", "")!="":
+            ws.cell(row=i, column=23, value=row.get("formation", "")).fill = error_fill
+        else:
+            ws.cell(row=i, column=23, value=row.get("formation", ""))
         
 
 
