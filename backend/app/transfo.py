@@ -2,7 +2,8 @@ import pandas as pd
 import re
 import unicodedata
 from sqlalchemy.orm import Session
-from app.database import get_db,SessionLocal
+from app.database import get_db
+from app.models.administration import Formation
 
 # Domaines valides
 VALID_DOMAINS = (
@@ -21,15 +22,15 @@ DOMAIN_CORRECTIONS = {
     "freee.com": "free.fr", "f ree.fr": "free.fr",
     "gmail.co": "gmail.com", "gmai.com": "gmail.com", "gamil.com": "gmail.com",
     "gnail.com": "gmail.com", "gmail.fr": "gmail.com", "gmail.c0m": "gmail.com",
-    "gmil.com": "gmail.com", "gmaill.com": "gmail.com",
-    "yahho.com": "yahoo.com", "yahooo.com": "yahoo.com", "yaho.com": "yahoo.com",
-    "yahoo.fr": "yahoo.com", "yhaoo.com": "yahoo.com",
+    "gmil.com": "gmail.com", "gmaill.com": "gmail.com", "gmaill.co": "gmail.com",
+    "yahho.com": "yahoo.com","yahoo.co": "yahoo.com", "yahooo.com": "yahoo.com",
+    "yahoo.fr": "yahoo.com", "yhaoo.com": "yahoo.com", "yaho.com": "yahoo.com",
     "outlok.com": "outlook.com", "outlook.fr": "outlook.com", "outllok.com": "outlook.com",
     "outlookk.com": "outlook.com", "outloook.com": "outlook.com", "outtlook.com": "outlook.com",
-    "outlooook.com": "outlook.com",
+    "outlooook.com": "outlook.com", "outlook.co": "outlook.com","outloo.com": "outlook.com",
     "hotmai.com": "hotmail.com", "hotmail.co": "hotmail.com", "hotamil.com": "hotmail.com",
-    "hotmal.com": "hotmail.com",
-    "icloud.fr": "icloud.com", "icoud.com": "icloud.com", "iclod.com": "icloud.com",
+    "hotmal.com": "hotmail.com", "hotmail.co": "hotmail.com",
+    "icloud.fr": "icloud.com", "icoud.com": "icloud.com", "iclod.com": "icloud.com", "icloud.co": "icloud.com",
     "orrange.fr": "orange.fr", "orangr.fr": "orange.fr", "orange.com": "orange.fr",
     "wannado.fr": "wanadoo.fr", "wanadoo.com": "wanadoo.fr", "wanado.fr": "wanadoo.fr",
     "sfr.com": "sfr.fr", "sfrr.fr": "sfr.fr",
@@ -37,7 +38,9 @@ DOMAIN_CORRECTIONS = {
 }
 
 FORMATION_CORRECTION = {
-    "inge": "Cycle ingénieur", "ingenieur": "Cycle ingénieur", "cycle ingé": "Cycle ingénieur",
+    "Cycle ingénieur": "Cycle Ingénieur", 
+    "Prépa ingénieur": "Cycle Préparatoire",    
+    "ingenieur": "Cycle ingénieur", "cycle ingé": "Cycle ingénieur",
     "prepa inge": "Prépa ingénieur", "prepa ingenier": "Prépa ingénieur",
     "bachelor pontoise": "Bachelor Informatique", "bachelor info": "Bachelor Informatique",
     "coding": "Bachelor Coding & IA", "dsns": "Bachelor DSNS (Cyber)",
@@ -59,28 +62,14 @@ PROFILE_CORRECTION = {
     "Enseignement": "Enseignement / Orientation", "enseignement": "Enseignement / Orientation",
     "Orientation": "Enseignement / Orientation", "orientation": "Enseignement / Orientation",
     "Autre": "Autre", "autre": "Autre"
-
 }
 
 CAMPUS_CORRECTION = {
     "pontoise": "ESIEE-IT-Pontoise", "pontoise (95)": "ESIEE-IT-Pontoise",
     "cergy": "ESIEE-IT-CODING FACTORY Cergy", "cergy (95)": "ESIEE-IT-CODING FACTORY Cergy",
-    "paris": "ESIEE-IT-Paris 15", "paris (75)": "ESIEE-IT-Paris 15",
+    "paris": "ESIEE-IT-Paris 15", "paris (75)": "ESIEE-IT-Paris 15", "paris (15ème)": "ESIEE-IT-Paris 15",
 }
 
-FORMATION_TO_CAMPUS = {
-    "E3IN": "ESIEE-IT-Pontoise",
-    "E3COM": "ESIEE-IT-Paris 15",
-    "Bachelor Coding & IA": "ESIEE-IT-Pontoise",
-    "Bachelor DSNS (Cyber)": "ESIEE-IT-Pontoise",
-    "Bachelor Informatique": "ESIEE-IT-Pontoise",
-    "Cycle ingénieur": "ESIEE-IT-Pontoise",
-    "Cycle Ingenieur": "ESIEE-IT-Pontoise",
-    "Mastère Coding & IA": "ESIEE-IT-Paris 15",
-    "Mastere Coding & IA": "ESIEE-IT-Paris 15",
-    "Prépa ingénieur": "ESIEE-IT-Pontoise",
-    "Prepa ingenieur": "ESIEE-IT-Pontoise",
-}
 
 def normalize_text(text):
     if pd.isna(text) or not isinstance(text, str):
@@ -169,52 +158,64 @@ def clean_and_correct_phone(phone):
     
     return phone_str, False, "Format de téléphone invalide"
 
-def clean_and_correct_formation(formation):
-    if pd.isna(formation) or not isinstance(formation, str) or str(formation).strip() == "":
-        return "", True, None
-    
-    formation_str = str(formation).strip()
-    original = formation_str
-    normalized = normalize_text(formation_str)
-    
-    for wrong, correct in FORMATION_CORRECTION.items():
-        if wrong in normalized or normalized == wrong:
-            if correct != original:
-                return correct, True, f"Formation corrigée: {original} → {correct}"
-            return correct, True, None
-    
-    return formation_str, True, None
+def clean_formation(nom_formation):
+    if pd.isna(nom_formation) or str(nom_formation).strip() == "" or str(nom_formation).strip() == "nan":
+        return "", True
+    if nom_formation in FORMATION_CORRECTION:
+        return FORMATION_CORRECTION.get(nom_formation), False
+    return nom_formation,True,
 
-# ✅ FONCTION MODIFIÉE : accepte maintenant un paramètre formation en option
-def clean_and_correct_campus(campus, formation=None):
-    """Corrige le campus, avec auto-attribution basée sur la formation si campus vide"""
-    # db=SessionLocal()
+def load_formations_cache(db):
+    formations = db.query(Formation).all()
+
+    cache = {}
+
+    for f in formations:
+        name_key = f.name.strip().lower()
+        cache.setdefault(name_key, []).append({
+            "formation": f.name,
+            "campus": f.campus
+        })
+
+    return cache
+
+def get_formation(formations_cache, name):
+    formations_found = []
+
+    for key, formations in formations_cache.items():
+        if name.lower() in key:
+            formations_found.extend(formations)
+
+    return formations_found
+
+def correct_formation_and_campus(formation, campus, formations_cache):
+    campus=str(campus).strip()
+    if campus.lower() in CAMPUS_CORRECTION:
+        campus = CAMPUS_CORRECTION.get(campus.lower())
+
+    if (pd.isna(formation) or not isinstance(formation, str) or str(formation).strip() == ""or pd.isna(campus) or not isinstance(campus, str) or str(campus).strip() == ""):
+        return 4, formation, campus, "Formation et campus invalides."
+
+    nom_formation, error = clean_formation(str(formation).strip())
+
+    if error:
+        return 3, nom_formation, campus, "Nom de formation introuvable."
+
+    key = nom_formation.strip().lower()
+    formations_found = get_formation(formations_cache,nom_formation)
     
-    # Si campus vide ou None
-    if pd.isna(campus) or not isinstance(campus, str) or str(campus).strip() == "":
-        # Essayer d'attribuer selon la formation
-        if formation and formation in FORMATION_TO_CAMPUS:
-            corrected = FORMATION_TO_CAMPUS[formation]
-            return corrected, True, f"Campus auto-attribué selon la formation: {corrected}"
-        return "", True, None
-    
-    campus_str = str(campus).strip()
-    original = campus_str
-    normalized = normalize_text(campus_str)
-    
-    # Correction des fautes communes
-    for wrong, correct in CAMPUS_CORRECTION.items():
-        if wrong in normalized or normalized == wrong:
-            if correct != original:
-                return correct, True, f"Campus corrigé: {original} → {correct}"
-            return correct, True, None
-    
-    # Mettre la première lettre en majuscule si nécessaire
-    corrected = campus_str.title()
-    if corrected != original:
-        return corrected, True, f"Format corrigé: {original} → {corrected}"
-    
-    return campus_str, True, None
+    if not formations_found:
+        return 3, nom_formation, campus, "Nom de formation introuvable."
+
+    for formation_db in formations_found:
+        if formation_db["campus"] == None or formation_db["campus"] == campus :
+            return 0, formation_db["formation"], campus, None
+        
+        elif (pd.isna(campus) or not isinstance(campus, str) or str(campus).strip() == ""):
+            return 1, formation.nom, formation.campus, f"Campus corrigé -> {formation.campus}."
+
+    return 2, nom_formation, campus, "Nom de formation à modifier ou campus incohérent."
+
 
 def clean_and_correct_profil(profil):
     if pd.isna(profil) or str(profil).strip() == "":
@@ -227,3 +228,9 @@ def clean_and_correct_profil(profil):
         return profil_attendu, True, None
     
     return profil, False, f"Profil non reconnu."
+
+def has_error(errors, field_name):
+    return any(
+        error.get("type") == "error" and error.get("field") == field_name
+        for error in errors
+    )

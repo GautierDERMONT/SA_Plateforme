@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from app.api.routes import router
-from app.database import engine, Base
+from app.database import engine, Base, SessionLocal
 from app.models import user
 from app.models.administration import Formation, EnrollmentDate
 import pandas as pd
@@ -14,9 +14,10 @@ from openpyxl.styles import PatternFill
 from .transfo import (
     clean_and_correct_email,
     clean_and_correct_phone,
-    clean_and_correct_formation,
-    clean_and_correct_campus,
+    load_formations_cache,
+    correct_formation_and_campus,
     clean_and_correct_profil,
+    has_error,
     VALID_DOMAINS
 )
 # from .postal_codes import get_city_from_postal_code
@@ -61,7 +62,8 @@ async def process_and_preview(file: UploadFile = File(...)):
         'formation_fixed': 0, 'campus_fixed': 0, 'zip_fixed': 0, 
         'rentree_fixed': 0
     }
-    
+    db = SessionLocal()
+    formations_cache = load_formations_cache(db)
     for index, row in df.iterrows():
         errors = []
         
@@ -73,8 +75,8 @@ async def process_and_preview(file: UploadFile = File(...)):
         raw_phone = row.get("Téléphone", "") or row.get("Phone number", "")
         raw_zip = row.get("zipcode", "")
         raw_city = row.get("city", "")
-        raw_formation = row.get("Souhaits de formations :", "")
-        raw_campus = row.get("Choix de campus :", "")
+        raw_formation = row.get("Souhaits de formations :", "") or row.get("Souhaits de formations", "")
+        raw_campus = row.get("Choix de campus :", "") or row.get("Choix de campus :  ", "")
         # Essayer les deux apostrophes
         raw_classe = row.get("Actuellement, l'étudiant est en :", "")
         if not raw_classe or pd.isna(raw_classe):
@@ -151,21 +153,20 @@ async def process_and_preview(file: UploadFile = File(...)):
             errors.append({"field": "codePostal", "type": "error", "message": "Aucun code postale renseigné."})
             errors.append({"field": "ville", "type": "error", "message": "Aucune ville renseigné."})
         
-        # Correction de la formation
-        corrected_formation, formation_valid, formation_msg = clean_and_correct_formation(raw_formation)
-        if formation_msg and formation_msg.startswith(('Formation corrigée', 'Format corrigé')):
-            errors.append({"field": "formation", "type": "warning", "message": formation_msg})
-            stats['formation_fixed'] += 1
-        elif not formation_valid and formation_msg:
-            errors.append({"field": "formation", "type": "error", "message": formation_msg})
+        # Correction formation+campus    
+        error, corrected_formation, corrected_campus, msg = correct_formation_and_campus(raw_formation,raw_campus,formations_cache)    
+        if error==1:
+            errors.append({"field": "campus", "type": "error", "message": msg})
+                      
+        if error==2:
+            errors.append({"field": "formation", "type": "error", "message": msg})
+                       
+        if error==3:
+            errors.append({"field": "formation", "type": "error", "message": msg})
         
-        # Correction du campus avec auto-attribution
-        corrected_campus, campus_valid, campus_msg = clean_and_correct_campus(raw_campus, corrected_formation)
-        if campus_msg and campus_msg.startswith(('Campus corrigé', 'Format corrigé', 'Campus auto-attribué')):
-            errors.append({"field": "campus", "type": "warning", "message": campus_msg})
-            stats['campus_fixed'] += 1
-        elif not campus_valid and campus_msg:
-            errors.append({"field": "campus", "type": "error", "message": campus_msg})
+        if error==4:
+            errors.append({"field": "formation", "type": "error", "message": "Formation invalide."})
+            errors.append({"field": "campus", "type": "error", "message": "Campus invalide."})
         
         # Calcul de la date de rentrée prévisionnelle (depuis rentree.py)
         rentree_date = None
@@ -195,6 +196,7 @@ async def process_and_preview(file: UploadFile = File(...)):
             "dateRentreePrev": rentree_date if rentree_date else "",
             "errors": errors
         })
+    db.close()
     
     # Afficher les statistiques
     print("\n" + "="*50)
@@ -225,33 +227,58 @@ async def process_and_preview(file: UploadFile = File(...)):
 # async def upload_file(data: dict):
 async def upload_file(data: dict):
     rows = data.get("rows", [])
-    red_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+    error_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+    warning_fill = PatternFill(start_color="FFD966", end_color="FFD966", fill_type="solid")
     start_row = 2
     
     wb = load_workbook("Matrice import CRM.xlsx")
     ws = wb["Template"]
         
     for i, row in enumerate(rows, start=start_row):
-        ws.cell(row=2 + i, column=3, value=row.get("profil",""))
+        errors=row.get("errors",[])
+        
+        if has_error(errors, "profil"):
+            ws.cell(row=i, column=3, value=row.get("profil","")).fill = error_fill
+        else:
+            ws.cell(row=i, column=3, value=row.get("profil",""))
+            
         ws.cell(row=i, column=2, value=row.get("dateRentreePrev", ""))
-        ws.cell(row=i, column=5, value=row.get("nom", ""))
-        ws.cell(row=i, column=6, value=row.get("prenom", ""))
+
+        if has_error(errors, "nom"):
+            ws.cell(row=i, column=5, value=row.get("nom", "")).fill = error_fill
+        else:
+            ws.cell(row=i, column=5, value=row.get("nom", ""))
         
-        # if not row.get("email", "").endswith(VALID_DOMAINS):
-        #     ws.cell(row=2 + i, column=7, value=row.get("email", "")).fill = red_fill
-        # else:
-        ws.cell(row=i, column=7, value=row.get("email", ""))
+        if has_error(errors, "prenom"):
+            ws.cell(row=i, column=6, value=row.get("prenom", "")).fill = error_fill
+        else:
+            ws.cell(row=i, column=6, value=row.get("prenom", ""))
         
-        # if not row.get("telephone", "").startswith("+") or len(row.get("telephone", "")) != 12:
-        #     ws.cell(row=2 + i, column=8, value=row.get("telephone", "")).fill = red_fill
-        # else:
-        ws.cell(row=i, column=8, value=row.get("telephone", ""))
+        if has_error(errors, "email"):
+            ws.cell(row=i, column=7, value=row.get("email", "")).fill = error_fill
+        else:
+            ws.cell(row=i, column=7, value=row.get("email", ""))
         
-        ws.cell(row=i, column=12, value=row.get("codePostal", ""))
-        ws.cell(row=i, column=13, value=row.get("ville", ""))
+        if has_error(errors, "telephone"):
+            ws.cell(row=i, column=8, value=row.get("telephone", "")).fill = error_fill
+        else:
+            ws.cell(row=i, column=8, value=row.get("telephone", ""))
+            
+        if has_error(errors, "codePostal"):
+            ws.cell(row=i, column=12, value=row.get("codePostal", "")).fill = error_fill
+        else:
+            ws.cell(row=i, column=12, value=row.get("codePostal", ""))
+        
+        if has_error(errors, "ville"):
+            ws.cell(row=i, column=13, value=row.get("ville", "")).fill = error_fill
+        else:
+            ws.cell(row=i, column=13, value=row.get("ville", ""))
+            
         ws.cell(row=i, column=15, value=row.get("classeActuelle", ""))
         ws.cell(row=i, column=22, value=row.get("campus", ""))
         ws.cell(row=i, column=23, value=row.get("formation", ""))
+        
+
 
     output = BytesIO()
     wb.save(output)
