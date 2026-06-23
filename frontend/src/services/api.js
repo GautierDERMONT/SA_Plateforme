@@ -25,11 +25,11 @@ api.interceptors.request.use(
   }
 );
 
-// Auth
-export const login = (email, password) => api.post('/login', { email, password });
-export const register = (email, password, full_name) => api.post('/register', { email, password, full_name });
-export const getMe = () => api.get('/me');
-export const deleteMyAccount = () => api.delete('/me'); 
+// Auth - Ajout du préfixe /api pour correspondre au backend FastAPI
+export const login = (email, password) => api.post('/api/login', { email, password });
+export const register = (email, password, full_name) => api.post('/api/register', { email, password, full_name });
+export const getMe = () => api.get('/api/me');
+export const deleteMyAccount = () => api.delete('/api/me'); 
 
 // Data
 export const getData = () => api.get('/data');
