@@ -25,22 +25,22 @@ api.interceptors.request.use(
   }
 );
 
-// Auth - Ajout du préfixe /api pour correspondre au backend FastAPI
+// Auth
 export const login = (email, password) => api.post('/api/login', { email, password });
 export const register = (email, password, full_name) => api.post('/api/register', { email, password, full_name });
 export const getMe = () => api.get('/api/me');
 export const deleteMyAccount = () => api.delete('/api/me'); 
 
-// Data
-export const getData = () => api.get('/data');
-export const getItem = (id) => api.get(`/data/${id}`);
-export const createData = (data) => api.post('/data', data);
-export const updateData = (id, data) => api.put(`/data/${id}`, data);
-export const deleteData = (id) => api.delete(`/data/${id}`);
+// Data - Préfixe /api ajouté
+export const getData = () => api.get('/api/data');
+export const getItem = (id) => api.get(`/api/data/${id}`);
+export const createData = (data) => api.post('/api/data', data);
+export const updateData = (id, data) => api.put(`/api/data/${id}`, data);
+export const deleteData = (id) => api.delete(`/api/data/${id}`);
 
-// Admin - Users
-export const getUsers = () => api.get('/admin/users');
-export const createUser = (userData) => api.post('/admin/users', userData);
-export const deleteUser = (userId) => api.delete(`/admin/users/${userId}`);
+// Admin - Users - Préfixe /api ajouté
+export const getUsers = () => api.get('/api/admin/users');
+export const createUser = (userData) => api.post('/api/admin/users', userData);
+export const deleteUser = (userId) => api.delete(`/api/admin/users/${userId}`);
 
 export default api;
