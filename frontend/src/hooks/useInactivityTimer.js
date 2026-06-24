@@ -1,7 +1,7 @@
 // frontend/src/hooks/useInactivityTimer.js
 import { useEffect, useRef } from 'react';
 
-const INACTIVITY_DELAY = 24 * 60 * 60 * 1000; 
+const INACTIVITY_DELAY = 4 * 60 * 60 * 1000; 
 
 export function useInactivityTimer(onInactivity, resetOnActivity = true) {
   const timerRef = useRef(null);
