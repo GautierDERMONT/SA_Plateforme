@@ -66,7 +66,7 @@ function Login({ onLogin }) {
       <div className="login-page-card">
         <div className="login-page-header">
           <h1>SA Plateforme</h1>
-          <p>Transformateur CSV CRM</p>
+          <p>Transformateur CRM</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-page-form">

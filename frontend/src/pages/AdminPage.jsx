@@ -4,7 +4,7 @@ import Navbar from './Navbar';
 import axios from 'axios';
 import './AdminPage.css';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://sa-plateforme-backend.onrender.com';
 
 export default function AdminPage({ onLogout, user: propUser }) {
   const navigate = useNavigate();
@@ -260,7 +260,7 @@ export default function AdminPage({ onLogout, user: propUser }) {
         <div className="admin-header">
           <div>
             <h1>Administration</h1>
-            <p>Gérer les formations et les dates de rentrée</p>
+            <p>Gérer les formations</p>
           </div>
           <button className="back-btn" onClick={() => navigate(-1)}>
             ← Retour

@@ -327,7 +327,7 @@ export default function PreviewPage({ onLogout, user: propUser }) {
       const formData = new FormData();
       formData.append('file', selectedFile);
 
-      const response = await fetch('http://localhost:5000/process-and-preview', {
+      const response = await fetch('https://sa-plateforme-backend.onrender.com/process-and-preview', {
         method: 'POST',
         body: formData,
       });
@@ -480,7 +480,7 @@ export default function PreviewPage({ onLogout, user: propUser }) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('http://localhost:5000/process-and-preview', {
+      const response = await fetch('https://sa-plateforme-backend.onrender.com/process-and-preview', {
         method: 'POST',
         body: formData,
       });
@@ -560,7 +560,7 @@ export default function PreviewPage({ onLogout, user: propUser }) {
     console.log("editingData avant export :", editingData);
     console.log("Nombre de lignes :", editingData?.length);
 
-    const response = await fetch("http://localhost:5000/download", {
+    const response = await fetch("https://sa-plateforme-backend.onrender.com/download", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

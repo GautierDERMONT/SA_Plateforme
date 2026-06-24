@@ -69,7 +69,7 @@ function Dashboard({ onLogout, user: propUser }) {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('http://localhost:5000/process-and-preview', {
+      const response = await fetch('https://sa-plateforme-backend.onrender.com/process-and-preview', {
         method: 'POST',
         body: formData,
       });
