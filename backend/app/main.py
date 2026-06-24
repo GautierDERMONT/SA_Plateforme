@@ -69,16 +69,16 @@ async def process_and_preview(file: UploadFile = File(...)):
         errors = []
         
         # Récupérer les valeurs (gérer les NaN)        
-        raw_profil = get_first_value(row, ["Profiles", "profiles"])
-        raw_nom = get_first_value(row, ["Nom", "nom", "Last name", "last name"])
-        raw_prenom = get_first_value(row, ["Prénom", "prénom", "Prenom", "prenom", "First name", "first name"])
-        raw_email = row.get("Email", "")
-        raw_phone = get_first_value(row, ["Téléphone", "téléphone", "Telephone", "telephone", "Phone number", "phone number"])
-        raw_zip = get_first_value(row, ["zipcode", "Zipcode", "Code postal", "code postal"])
-        raw_city = get_first_value(row, ["city", "City", "Ville", "ville"])
+        raw_profil = get_first_value(row, ["Profiles", "profiles", "PROFILES", "Profil", "profil", "PROFIL"])
+        raw_nom = get_first_value(row, ["Nom","NOM", "nom", "Last name", "last name"])
+        raw_prenom = get_first_value(row, ["Prénom", "prénom", "PRÉNOM", "Prenom", "prenom", "PRENOM", "First name", "first name", "FIRST NAME"])
+        raw_email = get_first_value(row, ["Email", "email", "EMAIL", "Mail", "mail", "MAIL"])
+        raw_phone = get_first_value(row, ["Téléphone", "téléphone", "Telephone", "telephone", "TELEPHONE","TÉLEPHONE", "Portable", "portable", "PORTABLE", "Phone number", "phone number", "PHONE NUMBER", "Phone", "phone", "PHONE"])
+        raw_zip = get_first_value(row, ["zipcode", "Zipcode", "ZIPCODE","Code postal", "code postal", "CODE POSTAL"])
+        raw_city = get_first_value(row, ["city", "City", "CITY", "Ville", "ville", "VILLE"])
         raw_formation = get_first_value(row, ["Souhaits de formations :", "Souhaits de formations", "souhaits de formations :", "souhaits de formations"])
-        raw_campus = get_first_value(row, ["Choix de campus :","Choix de campus",])
-        raw_classe = get_first_value(row, ["Actuellement, l'étudiant est en :","Actuellement, l’étudiant est en :","Actuellement, l'étudiant est en","Actuellement, l’étudiant est en",])
+        raw_campus = get_first_value(row, ["Choix de campus :", "CHOIX DE CAMPUS :", "Choix de campus", "CHOIX DE CAMPUS", "Campus :","campus :", "CAMPUS :" "Campus","campus", "CAMPUS"])
+        raw_classe = get_first_value(row, ["Actuellement, l'étudiant est en :","Actuellement, l’étudiant est en :","Actuellement, l'étudiant est en","Actuellement, l’étudiant est en","Classe","classe","CLASSE"])
  
         # Convertir en string et gérer les NaN
         if pd.isna(raw_profil): raw_profil = ""
