@@ -21,12 +21,12 @@ export default function AdminPage({ onLogout, user: propUser }) {
   const [editFormationName, setEditFormationName] = useState('');
   const [editFormationCampus, setEditFormationCampus] = useState('');
   
-  // États pour les dates de rentrée
-  const [newEnrollmentYear, setNewEnrollmentYear] = useState('');
-  const [newEnrollmentDate, setNewEnrollmentDate] = useState('');
-  const [editingDateId, setEditingDateId] = useState(null);
-  const [editDateYear, setEditDateYear] = useState('');
-  const [editDateValue, setEditDateValue] = useState('');
+  // // États pour les dates de rentrée
+  // const [newEnrollmentYear, setNewEnrollmentYear] = useState('');
+  // const [newEnrollmentDate, setNewEnrollmentDate] = useState('');
+  // const [editingDateId, setEditingDateId] = useState(null);
+  // const [editDateYear, setEditDateYear] = useState('');
+  // const [editDateValue, setEditDateValue] = useState('');
   
   const [activeTab, setActiveTab] = useState('formations');
 
@@ -75,7 +75,7 @@ export default function AdminPage({ onLogout, user: propUser }) {
     }
   };
 
-  // Charger les dates de rentrée depuis l'API
+  // Charger les dates de rentrée depuis l'API A SUPPRIMER
   const fetchEnrollmentDates = async () => {
     try {
       const response = await axios.get(`${API_URL}/admin/enrollment-dates`, getAuthHeaders());
@@ -192,64 +192,64 @@ export default function AdminPage({ onLogout, user: propUser }) {
   // ============ GESTION DES DATES DE RENTRÉE ============
   
   // Ajouter une date de rentrée
-  const handleAddEnrollmentDate = async () => {
-    if (newEnrollmentYear.trim() && newEnrollmentDate.trim()) {
-      try {
-        await axios.post(
-          `${API_URL}/admin/enrollment-dates`,
-          null,
-          { 
-            params: { 
-              year: newEnrollmentYear.trim(), 
-              date: newEnrollmentDate.trim() 
-            },
-            ...getAuthHeaders()
-          }
-        );
-        await fetchEnrollmentDates();
-        setNewEnrollmentYear('');
-        setNewEnrollmentDate('');
-      } catch (err) {
-        console.error('Erreur ajout date:', err);
-        alert('Erreur lors de l\'ajout');
-      }
-    }
-  };
+  // const handleAddEnrollmentDate = async () => {
+  //   if (newEnrollmentYear.trim() && newEnrollmentDate.trim()) {
+  //     try {
+  //       await axios.post(
+  //         `${API_URL}/admin/enrollment-dates`,
+  //         null,
+  //         { 
+  //           params: { 
+  //             year: newEnrollmentYear.trim(), 
+  //             date: newEnrollmentDate.trim() 
+  //           },
+  //           ...getAuthHeaders()
+  //         }
+  //       );
+  //       await fetchEnrollmentDates();
+  //       setNewEnrollmentYear('');
+  //       setNewEnrollmentDate('');
+  //     } catch (err) {
+  //       console.error('Erreur ajout date:', err);
+  //       alert('Erreur lors de l\'ajout');
+  //     }
+  //   }
+  // };
 
-  // Modifier une date de rentrée
-  const handleSaveEnrollmentDate = async (id) => {
-    try {
-      await axios.put(
-        `${API_URL}/admin/enrollment-dates/${id}`,
-        null,
-        { 
-          params: { 
-            year: editDateYear.trim(), 
-            date: editDateValue.trim() 
-          },
-          ...getAuthHeaders()
-        }
-      );
-      await fetchEnrollmentDates();
-      setEditingDateId(null);
-    } catch (err) {
-      console.error('Erreur modification date:', err);
-      alert('Erreur lors de la modification');
-    }
-  };
+  // // Modifier une date de rentrée
+  // const handleSaveEnrollmentDate = async (id) => {
+  //   try {
+  //     await axios.put(
+  //       `${API_URL}/admin/enrollment-dates/${id}`,
+  //       null,
+  //       { 
+  //         params: { 
+  //           year: editDateYear.trim(), 
+  //           date: editDateValue.trim() 
+  //         },
+  //         ...getAuthHeaders()
+  //       }
+  //     );
+  //     await fetchEnrollmentDates();
+  //     setEditingDateId(null);
+  //   } catch (err) {
+  //     console.error('Erreur modification date:', err);
+  //     alert('Erreur lors de la modification');
+  //   }
+  // };
 
-  // Supprimer une date de rentrée
-  const handleDeleteEnrollmentDate = async (id) => {
-    if (window.confirm('Supprimer cette date de rentrée ?')) {
-      try {
-        await axios.delete(`${API_URL}/admin/enrollment-dates/${id}`, getAuthHeaders());
-        await fetchEnrollmentDates();
-      } catch (err) {
-        console.error('Erreur suppression date:', err);
-        alert('Erreur lors de la suppression');
-      }
-    }
-  };
+  // // Supprimer une date de rentrée
+  // const handleDeleteEnrollmentDate = async (id) => {
+  //   if (window.confirm('Supprimer cette date de rentrée ?')) {
+  //     try {
+  //       await axios.delete(`${API_URL}/admin/enrollment-dates/${id}`, getAuthHeaders());
+  //       await fetchEnrollmentDates();
+  //     } catch (err) {
+  //       console.error('Erreur suppression date:', err);
+  //       alert('Erreur lors de la suppression');
+  //     }
+  //   }
+  // };
 
   return (
     <div className="admin-page">
@@ -273,12 +273,12 @@ export default function AdminPage({ onLogout, user: propUser }) {
           >
             Formations
           </button>
-          <button 
+          {/* <button 
             className={`tab-btn ${activeTab === 'dates' ? 'active' : ''}`}
             onClick={() => setActiveTab('dates')}
           >
             Dates de rentrée
-          </button>
+          </button> */}
         </div>
 
         {/* ===== ONGLET FORMATIONS ===== */}
@@ -369,7 +369,7 @@ export default function AdminPage({ onLogout, user: propUser }) {
           </div>
         )}
 
-        {/* ===== ONGLET DATES DE RENTRÉE ===== */}
+        {/* ===== ONGLET DATES DE RENTRÉE =====
         {activeTab === 'dates' && (
           <div className="tab-content">
             <div className="add-section">
@@ -459,7 +459,7 @@ export default function AdminPage({ onLogout, user: propUser }) {
               </table>
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
