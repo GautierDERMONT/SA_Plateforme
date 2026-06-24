@@ -11,7 +11,7 @@ export default function AdminPage({ onLogout, user: propUser }) {
   const [user, setUser] = useState(propUser || null);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [formations, setFormations] = useState([]);
-  const [enrollmentDates, setEnrollmentDates] = useState([]);
+  // const [enrollmentDates, setEnrollmentDates] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // États pour les formations
@@ -76,14 +76,14 @@ export default function AdminPage({ onLogout, user: propUser }) {
   };
 
   // Charger les dates de rentrée depuis l'API A SUPPRIMER
-  const fetchEnrollmentDates = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/admin/enrollment-dates`, getAuthHeaders());
-      setEnrollmentDates(response.data);
-    } catch (err) {
-      console.error('Erreur chargement dates:', err);
-    }
-  };
+  // const fetchEnrollmentDates = async () => {
+  //   try {
+  //     const response = await axios.get(`${API_URL}/admin/enrollment-dates`, getAuthHeaders());
+  //     setEnrollmentDates(response.data);
+  //   } catch (err) {
+  //     console.error('Erreur chargement dates:', err);
+  //   }
+  // };
 
   useEffect(() => {
     if (!user) {
@@ -105,7 +105,8 @@ export default function AdminPage({ onLogout, user: propUser }) {
     // Charger les données depuis l'API
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchFormations(), fetchEnrollmentDates()]);
+      // await Promise.all([fetchFormations(), fetchEnrollmentDates()]);
+      await fetchFormations();
       setLoading(false);
     };
     
