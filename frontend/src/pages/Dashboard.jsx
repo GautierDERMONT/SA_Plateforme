@@ -106,15 +106,15 @@ function Dashboard({ onLogout, user: propUser }) {
       
       <main className="dashboard-container">
         <header className="hero-section">
-          <h1>Transformateur CSV CRM</h1>
-          <p>Importez et transformez vos fichiers CSV de salons pour le CRM</p>
+          <h1>Transformateur Excel CRM</h1>
+          <p>Importez et transformez vos fichiers XLSX de salons pour le CRM</p>
         </header>
 
         <div className="main-card">
           <div className="card-header">
             <div className="header-text">
-              <h3>Importer un fichier CSV</h3>
-              <p>Sélectionnez votre fichier CSV et configurez le traitement</p>
+              <h3>Importer un fichier Excel</h3>
+              <p>Sélectionnez votre fichier Excel à traiter</p>
             </div>
           </div>
 
@@ -130,18 +130,7 @@ function Dashboard({ onLogout, user: propUser }) {
             </div>
 
             <div className="input-group">
-              <label>Format du fichier</label>
-              <select 
-                value={selectedFormat} 
-                onChange={(e) => setSelectedFormat(e.target.value)}
-              >
-                <option>Détection automatique</option>
-                <option>Format Standard</option>
-              </select>
-            </div>
-
-            <div className="input-group">
-              <label>Fichier CSV</label>
+              <label>Fichier Excel</label>
               <input
                 type="file"
                 id="fileInput"
