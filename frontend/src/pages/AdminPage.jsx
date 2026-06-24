@@ -260,7 +260,7 @@ export default function AdminPage({ onLogout, user: propUser }) {
         <div className="admin-header">
           <div>
             <h1>Administration</h1>
-            <p>Gérer les formations et les dates de rentrée</p>
+            <p>Gérer les formations</p>
           </div>
           <button className="back-btn" onClick={() => navigate(-1)}>
             ← Retour

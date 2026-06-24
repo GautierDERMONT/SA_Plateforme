@@ -65,7 +65,7 @@ function Navbar({ user, onLogout }) {
         <div className="navbar-container">
           <div className="navbar-left">
             <div className="navbar-logo">
-              <span className="logo-text">CSV CRM Transformer</span>
+              <span className="logo-text">CRM Transformer</span>
             </div>
             <button className="navbar-btn home" onClick={goToDashboard}>
               Accueil
