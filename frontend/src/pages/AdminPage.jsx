@@ -4,7 +4,7 @@ import Navbar from './Navbar';
 import axios from 'axios';
 import './AdminPage.css';
 
-const API_URL = 'https://sa-plateforme-backend.onrender.com';
+const API_URL = 'https://sa-plateforme-backend.onrender.com/api';
 
 export default function AdminPage({ onLogout, user: propUser }) {
   const navigate = useNavigate();
